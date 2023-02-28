@@ -231,7 +231,7 @@ class Nerfstudio(DataParser):
         image_filenames = [image_filenames[i] for i in indices]
         mask_filenames = [mask_filenames[i] for i in indices] if len(mask_filenames) > 0 else []
         depth_filenames = [depth_filenames[i] for i in indices] if len(depth_filenames) > 0 else []
-        semantic_filenames = [semantic_filenames[i] for i in indices] if len(depth_filenames) > 0 else []
+        semantic_filenames = [semantic_filenames[i] for i in indices] if len(semantic_filenames) > 0 else []
         poses = poses[indices]
 
         # in x,y,z order
@@ -287,6 +287,9 @@ class Nerfstudio(DataParser):
             classes = panoptic_classes["thing"]
             colors = torch.tensor(panoptic_classes["thing_colors"], dtype=torch.float32) / 255.0
             semantics = Semantics(filenames=semantic_filenames, classes=classes, colors=colors, mask_classes=["void"])
+
+        # Mask pixels where semantic class is 0
+        mask_filenames = semantic_filenames
 
         dataparser_outputs = DataparserOutputs(
             image_filenames=image_filenames,
