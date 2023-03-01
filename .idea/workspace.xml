@@ -5,14 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="57aaf01d-4a76-4a46-ac53-bafbe5e6f081" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/colab/demo.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/colab/demo.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/nerfology/model_components/visualize_cameras.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/docs/nerfology/model_components/visualize_cameras.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/nerfology/model_components/visualize_encoders.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/docs/nerfology/model_components/visualize_encoders.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/nerfology/model_components/visualize_samplers.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/docs/nerfology/model_components/visualize_samplers.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/nerfology/model_components/visualize_samples.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/docs/nerfology/model_components/visualize_samples.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/nerfology/model_components/visualize_spatial_distortions.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/docs/nerfology/model_components/visualize_spatial_distortions.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/nerfstudio/data/dataparsers/nerfstudio_dataparser.py" beforeDir="false" afterPath="$PROJECT_DIR$/nerfstudio/data/dataparsers/nerfstudio_dataparser.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/nerfstudio/models/semantic-nerfacto.py" beforeDir="false" afterPath="$PROJECT_DIR$/nerfstudio/models/semantic_nerfacto.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/nerfstudio/data/utils/dataloaders.py" beforeDir="false" afterPath="$PROJECT_DIR$/nerfstudio/data/utils/dataloaders.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/nerfstudio/exporter/exporter_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/nerfstudio/exporter/exporter_utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/nerfstudio/models/semantic_nerfacto.py" beforeDir="false" afterPath="$PROJECT_DIR$/nerfstudio/models/semantic_nerfacto.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/exporter.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/exporter.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -61,7 +58,7 @@
       <workItem from="1676561965821" duration="11258000" />
       <workItem from="1676980640501" duration="21235000" />
       <workItem from="1677146258350" duration="18322000" />
-      <workItem from="1677405151589" duration="7657000" />
+      <workItem from="1677405151589" duration="26480000" />
     </task>
     <servers />
   </component>

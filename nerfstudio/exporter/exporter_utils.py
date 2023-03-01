@@ -89,6 +89,7 @@ def generate_point_cloud(
     remove_outliers: bool = True,
     estimate_normals: bool = False,
     rgb_output_name: str = "rgb",
+    semantics_output_name: str = "semantics_colormap",
     depth_output_name: str = "depth",
     normal_output_name: Optional[str] = None,
     use_bounding_box: bool = True,
@@ -104,6 +105,7 @@ def generate_point_cloud(
         remove_outliers: Whether to remove outliers.
         estimate_normals: Whether to estimate normals.
         rgb_output_name: Name of the RGB output.
+        semantics_output_name: Name of the semantics colors output.
         depth_output_name: Name of the depth output.
         normal_output_name: Name of the normal output.
         use_bounding_box: Whether to use a bounding box to sample points.
@@ -125,6 +127,7 @@ def generate_point_cloud(
     )
     points = []
     rgbs = []
+    semantics = []
     normals = []
     with progress as progress_bar:
         task = progress_bar.add_task("Generating Point Cloud", total=num_points)
@@ -137,12 +140,18 @@ def generate_point_cloud(
                 CONSOLE.print(f"Could not find {rgb_output_name} in the model outputs", justify="center")
                 CONSOLE.print(f"Please set --rgb_output_name to one of: {outputs.keys()}", justify="center")
                 sys.exit(1)
+            if semantics_output_name not in outputs:
+                CONSOLE.rule("Error", style="red")
+                CONSOLE.print(f"Could not find {semantics_output_name} in the model outputs", justify="center")
+                CONSOLE.print(f"Please set --semantics_output_name to one of: {outputs.keys()}", justify="center")
+                sys.exit(1)
             if depth_output_name not in outputs:
                 CONSOLE.rule("Error", style="red")
                 CONSOLE.print(f"Could not find {depth_output_name} in the model outputs", justify="center")
                 CONSOLE.print(f"Please set --depth_output_name to one of: {outputs.keys()}", justify="center")
                 sys.exit(1)
             rgb = outputs[rgb_output_name]
+            semantic = outputs[semantics_output_name]
             depth = outputs[depth_output_name]
             if normal_output_name is not None:
                 if normal_output_name not in outputs:
@@ -166,25 +175,32 @@ def generate_point_cloud(
                 mask = torch.all(torch.concat([point > comp_l, point < comp_m], dim=-1), dim=-1)
                 point = point[mask]
                 rgb = rgb[mask]
+                semantic = semantic[mask]
                 if normal_output_name is not None:
                     normal = normal[mask]
 
             points.append(point)
             rgbs.append(rgb)
+            semantics.append(semantic)
             if normal_output_name is not None:
                 normals.append(normal)
             progress.advance(task, point.shape[0])
     points = torch.cat(points, dim=0)
     rgbs = torch.cat(rgbs, dim=0)
+    semantics = torch.cat(semantics, dim=0)
 
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(points.float().cpu().numpy())
-    pcd.colors = o3d.utility.Vector3dVector(rgbs.float().cpu().numpy())
+    pcd_rgb = o3d.geometry.PointCloud()
+    pcd_semantics = o3d.geometry.PointCloud()
+    pcd_rgb.points = o3d.utility.Vector3dVector(points.float().cpu().numpy())
+    pcd_semantics.points = o3d.utility.Vector3dVector(points.float().cpu().numpy())
+    pcd_rgb.colors = o3d.utility.Vector3dVector(rgbs.float().cpu().numpy())
+    pcd_semantics.colors = o3d.utility.Vector3dVector(semantics.float().cpu().numpy())
 
     ind = None
     if remove_outliers:
         CONSOLE.print("Cleaning Point Cloud")
-        pcd, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=std_ratio)
+        pcd, ind = pcd_rgb.remove_statistical_outlier(nb_neighbors=20, std_ratio=std_ratio)
+        pcd, ind = pcd_semantics.remove_statistical_outlier(nb_neighbors=20, std_ratio=std_ratio)
         print("\033[A\033[A")
         CONSOLE.print("[bold green]:white_check_mark: Cleaning Point Cloud")
 
@@ -205,7 +221,7 @@ def generate_point_cloud(
             normals = normals[ind]
         pcd.normals = o3d.utility.Vector3dVector(normals.float().cpu().numpy())
 
-    return pcd
+    return pcd_rgb, pcd_semantics
 
 
 def render_trajectory(

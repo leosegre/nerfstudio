@@ -55,6 +55,8 @@ class ExportPointCloud(Exporter):
     """Name of the depth output."""
     rgb_output_name: str = "rgb"
     """Name of the RGB output."""
+    semantics_output_name: str = "semantics_colormap"
+    """Name of the Semantics output."""
     use_bounding_box: bool = True
     """Only query points within the bounding box"""
     bounding_box_min: Tuple[float, float, float] = (-1, -1, -1)
@@ -77,12 +79,13 @@ class ExportPointCloud(Exporter):
         # Increase the batchsize to speed up the evaluation.
         pipeline.datamanager.train_pixel_sampler.num_rays_per_batch = self.num_rays_per_batch
 
-        pcd = generate_point_cloud(
+        pcd_rgb, pcd_semantics = generate_point_cloud(
             pipeline=pipeline,
             num_points=self.num_points,
             remove_outliers=self.remove_outliers,
             estimate_normals=self.estimate_normals,
             rgb_output_name=self.rgb_output_name,
+            semantics_output_name=self.semantics_output_name,
             depth_output_name=self.depth_output_name,
             normal_output_name=None,
             use_bounding_box=self.use_bounding_box,
@@ -92,9 +95,11 @@ class ExportPointCloud(Exporter):
         )
         torch.cuda.empty_cache()
 
-        CONSOLE.print(f"[bold green]:white_check_mark: Generated {pcd}")
+        CONSOLE.print(f"[bold green]:white_check_mark: Generated {pcd_rgb}")
+        CONSOLE.print(f"[bold green]:white_check_mark: Generated {pcd_semantics}")
         CONSOLE.print("Saving Point Cloud...")
-        o3d.io.write_point_cloud(str(self.output_dir / "point_cloud.ply"), pcd)
+        o3d.io.write_point_cloud(str(self.output_dir / "point_cloud_rgb.ply"), pcd_rgb)
+        o3d.io.write_point_cloud(str(self.output_dir / "point_cloud_semantics.ply"), pcd_semantics)
         print("\033[A\033[A")
         CONSOLE.print("[bold green]:white_check_mark: Saving Point Cloud")
 
