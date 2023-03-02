@@ -217,16 +217,13 @@ class SemanticNerfModel(Model):
     def get_outputs(self, ray_bundle: RayBundle):
         ray_samples, weights_list, ray_samples_list = self.proposal_sampler(ray_bundle, density_fns=self.density_fns)
         field_outputs = self.field(ray_samples, compute_normals=self.config.predict_normals)
-        # field_outputs = self.field(ray_samples)
-
-        weights_static = ray_samples.get_weights(field_outputs[FieldHeadNames.DENSITY])
-        weights = weights_static
-        weights_list.append(weights_static)
+        weights = ray_samples.get_weights(field_outputs[FieldHeadNames.DENSITY])
+        weights_list.append(weights)
         ray_samples_list.append(ray_samples)
 
         rgb = self.renderer_rgb(rgb=field_outputs[FieldHeadNames.RGB], weights=weights)
-        depth = self.renderer_depth(weights=weights_static, ray_samples=ray_samples)
-        accumulation = self.renderer_accumulation(weights=weights_static)
+        depth = self.renderer_depth(weights=weights, ray_samples=ray_samples)
+        accumulation = self.renderer_accumulation(weights=weights)
 
         outputs = {
             "rgb": rgb,
