@@ -367,7 +367,8 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
         self.train_dataparser_outputs = self.dataparser.get_dataparser_outputs(split="train")
 
         self.train_dataset = self.create_train_dataset()
-        self.eval_dataset = self.create_eval_dataset()
+        if not self.config.dataparser.train_split_fraction == 1:
+            self.eval_dataset = self.create_eval_dataset()
         super().__init__()
 
     def create_train_dataset(self) -> InputDataset:
