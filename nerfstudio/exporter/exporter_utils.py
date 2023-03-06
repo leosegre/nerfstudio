@@ -191,10 +191,10 @@ def generate_point_cloud(
 
     pcd_rgb = o3d.geometry.PointCloud()
     pcd_semantics = o3d.geometry.PointCloud()
-    pcd_rgb.points = o3d.utility.Vector3dVector(points.float().cpu().numpy())
-    pcd_semantics.points = o3d.utility.Vector3dVector(points.float().cpu().numpy())
-    pcd_rgb.colors = o3d.utility.Vector3dVector(rgbs.float().cpu().numpy())
-    pcd_semantics.colors = o3d.utility.Vector3dVector(semantics.float().cpu().numpy())
+    pcd_rgb.points = o3d.utility.Vector3dVector(points.double().cpu().numpy())
+    pcd_semantics.points = o3d.utility.Vector3dVector(points.double().cpu().numpy())
+    pcd_rgb.colors = o3d.utility.Vector3dVector(rgbs.double().cpu().numpy())
+    pcd_semantics.colors = o3d.utility.Vector3dVector(semantics.double().cpu().numpy())
 
     ind = None
     if remove_outliers:
@@ -219,7 +219,7 @@ def generate_point_cloud(
         if ind is not None:
             # mask out normals for points that were removed with remove_outliers
             normals = normals[ind]
-        pcd.normals = o3d.utility.Vector3dVector(normals.float().cpu().numpy())
+        pcd.normals = o3d.utility.Vector3dVector(normals.double().cpu().numpy())
 
     return pcd_rgb, pcd_semantics
 
