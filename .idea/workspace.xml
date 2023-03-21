@@ -5,8 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="57aaf01d-4a76-4a46-ac53-bafbe5e6f081" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/nerfstudio.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/nerfstudio.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/nerfstudio/data/datamanagers/base_datamanager.py" beforeDir="false" afterPath="$PROJECT_DIR$/nerfstudio/data/datamanagers/base_datamanager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/nerfstudio/data/utils/data_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/nerfstudio/data/utils/data_utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/nerfstudio/data/utils/dataloaders.py" beforeDir="false" afterPath="$PROJECT_DIR$/nerfstudio/data/utils/dataloaders.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/nerfstudio/models/semantic_nerfacto.py" beforeDir="false" afterPath="$PROJECT_DIR$/nerfstudio/models/semantic_nerfacto.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -29,7 +33,7 @@
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "WebServerToolWindowFactoryState": "false",
-    "last_opened_file_path": "/home/leo/DeepBBS",
+    "last_opened_file_path": "/home/leo/skyline/nerfstudio",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -56,6 +60,7 @@
       <workItem from="1676980640501" duration="21235000" />
       <workItem from="1677146258350" duration="18322000" />
       <workItem from="1677405151589" duration="42928000" />
+      <workItem from="1679390351502" duration="10047000" />
     </task>
     <servers />
   </component>

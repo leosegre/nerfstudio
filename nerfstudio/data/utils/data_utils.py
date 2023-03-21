@@ -45,13 +45,13 @@ def get_semantics_and_mask_tensors_from_path(
     If no mask is required - use mask_indices = []
     """
     if isinstance(mask_indices, List):
-        mask_indices = torch.tensor(mask_indices, dtype="int64").view(1, 1, -1)
+        mask_indices = torch.tensor(mask_indices, dtype="bool").view(1, 1, -1)
     pil_image = Image.open(filepath)
     if scale_factor != 1.0:
         width, height = pil_image.size
         newsize = (int(width * scale_factor), int(height * scale_factor))
         pil_image = pil_image.resize(newsize, resample=Image.NEAREST)
-    semantics = torch.from_numpy(np.array(pil_image, dtype="int64"))[..., None]
+    semantics = torch.from_numpy(np.array(pil_image, dtype="int8"))[..., None]
     mask = torch.sum(semantics == mask_indices, dim=-1, keepdim=True) == 0
     return semantics, mask
 
