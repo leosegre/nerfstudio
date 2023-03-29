@@ -294,49 +294,51 @@ class VanillaPipeline(Pipeline):
                 # print("camera_opt_transform_matrix", camera_opt_transform_matrix)
                 # print("unregistration_matrix", unregistration_matrix)
             if self.config.registration:
+                # registration_matrix = self.datamanager.train_dataparser_outputs.metadata["registration_matrix"]
                 unregistration_matrix = self.datamanager.train_dataparser_outputs.metadata["unregistration_matrix"]
                 camera_opt_transform_matrix = self.datamanager.train_camera_optimizer([0])
                 # print(unregistration_matrix.shape)
                 # print(camera_opt_transform_matrix.shape)
-                print(unregistration_matrix.to(self.device) @ torch.cat((camera_opt_transform_matrix.squeeze(), torch.tensor([[0, 0, 0, 1]], device=self.device)), dim=0))
+                # print(unregistration_matrix.to(self.device) @ torch.cat((camera_opt_transform_matrix.squeeze(), torch.tensor([[0, 0, 0, 1]], device=self.device)), dim=0))
 
-                def npmat2euler(mat, seq='zyx'):
+                def npmat2euler(mat, seq='xyz'):
                         eulers = []
                         r = Rotation.from_matrix(mat.cpu().detach().numpy())
                         eulers.append(r.as_euler(seq, degrees=True))
                         return torch.tensor(np.array(eulers), dtype=torch.float32)
 
                 camera_opt_rot_euler = npmat2euler(camera_opt_transform_matrix[:, :3, :3])
-                unregistration_rot_euler = self.datamanager.train_dataparser_outputs.metadata["unregistration_rot_euler"]
+                registration_rot_euler = self.datamanager.train_dataparser_outputs.metadata["unregistration_rot_euler"]
                 camera_opt_translation = camera_opt_transform_matrix[:, :, 3].cpu()
-                unregistration_translation = self.datamanager.train_dataparser_outputs.metadata["unregistration_translation"]
+                registration_translation = self.datamanager.train_dataparser_outputs.metadata["unregistration_translation"]
 
-                rotation_mse = torch.mean((camera_opt_rot_euler - unregistration_rot_euler).pow(2))
+                # rotation_mse = torch.mean((camera_opt_rot_euler - registration_rot_euler).pow(2))
+                # rotation_rmse = torch.sqrt(rotation_mse)
+                # translation_mse = torch.mean((camera_opt_translation - registration_translation).pow(2))
+                # translation_rmse = torch.sqrt(translation_mse)
+
+                rotation_mse = torch.mean((camera_opt_rot_euler + registration_rot_euler).pow(2))
                 rotation_rmse = torch.sqrt(rotation_mse)
-                translation_mse = torch.mean((camera_opt_translation - unregistration_translation).pow(2))
+                translation_mse = torch.mean((camera_opt_translation + registration_translation).pow(2))
                 translation_rmse = torch.sqrt(translation_mse)
 
-                rotation_mse_plus = torch.mean((camera_opt_rot_euler + unregistration_rot_euler).pow(2))
-                rotation_rmse_plus = torch.sqrt(rotation_mse_plus)
-                translation_mse_plus = torch.mean((camera_opt_translation + unregistration_translation).pow(2))
-                translation_rmse_plus = torch.sqrt(translation_mse_plus)
 
 
-
-                print("camera_opt_rot_euler", camera_opt_rot_euler)
-                print("unregistration_rot_euler", unregistration_rot_euler)
-                print("camera_opt_translation", camera_opt_translation)
-                print("unregistration_translation", unregistration_translation)
+                # print("camera_opt_rot_euler", camera_opt_rot_euler)
+                # print("registration_rot_euler", registration_rot_euler)
+                # print("camera_opt_translation", camera_opt_translation)
+                # print("registration_translation", registration_translation)
+                # print("camera_opt_transform_matrix", camera_opt_transform_matrix.cpu())
 
                 metrics_dict["rotation_mse"] = (rotation_mse)
                 metrics_dict["rotation_rmse"] = (rotation_rmse)
                 metrics_dict["translation_mse"] = (translation_mse)
                 metrics_dict["translation_rmse"] = (translation_rmse)
 
-                metrics_dict["rotation_mse_plus"] = (rotation_mse_plus)
-                metrics_dict["rotation_rmse_plus"] = (rotation_rmse_plus)
-                metrics_dict["translation_mse_plus"] = (translation_mse_plus)
-                metrics_dict["translation_rmse_plus"] = (translation_rmse_plus)
+                # metrics_dict["rotation_mse_plus"] = (rotation_mse_plus)
+                # metrics_dict["rotation_rmse_plus"] = (rotation_rmse_plus)
+                # metrics_dict["translation_mse_plus"] = (translation_mse_plus)
+                # metrics_dict["translation_rmse_plus"] = (translation_rmse_plus)
 
                 # print("camera_opt_rot_euler", camera_opt_rot_euler)
                 # print("unregistration_rot_euler", unregistration_rot_euler)

@@ -38,6 +38,9 @@ from nerfstudio.utils.io import load_from_json
 
 import nerfstudio.utils.poses as pose_utils
 
+from scipy.spatial.transform import Rotation
+
+
 
 CONSOLE = Console(width=120)
 MAX_AUTO_RESOLUTION = 1600
@@ -69,7 +72,7 @@ class NerfstudioDataParserConfig(DataParserConfig):
     """Scales the depth values to meters. Default value is 0.001 for a millimeter to meter conversion."""
     registration: bool = False
     """Whether to apply registration transform."""
-    max_angle_factor: float = 10
+    max_angle_factor: float = 12
     """Max Angle to rotate for registration test (for example - 4 -> pi/4)."""
     max_translation: float = 0.2
     """Max translation for registration test."""
@@ -251,24 +254,28 @@ class Nerfstudio(DataParser):
             angley = np.random.uniform() * np.pi / max_angle_factor
             anglez = np.random.uniform() * np.pi / max_angle_factor
 
-            unregistration_euler = torch.rad2deg(torch.tensor([anglez, angley, anglex]))
 
-            cosx = np.cos(anglex)
-            cosy = np.cos(angley)
-            cosz = np.cos(anglez)
-            sinx = np.sin(anglex)
-            siny = np.sin(angley)
-            sinz = np.sin(anglez)
-            Rx = np.array([[1, 0, 0],
-                           [0, cosx, -sinx],
-                           [0, sinx, cosx]])
-            Ry = np.array([[cosy, 0, siny],
-                           [0, 1, 0],
-                           [-siny, 0, cosy]])
-            Rz = np.array([[cosz, -sinz, 0],
-                           [sinz, cosz, 0],
-                           [0, 0, 1]])
-            rotation_ab = Rx.dot(Ry).dot(Rz)
+            unregistration_euler = torch.rad2deg(torch.tensor([anglex, angley, anglez]))
+            r = Rotation.from_euler('xyz', unregistration_euler, degrees=True)
+            rotation_ab = r.as_matrix()
+
+            # cosx = np.cos(anglex)
+            # cosy = np.cos(angley)
+            # cosz = np.cos(anglez)
+            # sinx = np.sin(anglex)
+            # siny = np.sin(angley)
+            # sinz = np.sin(anglez)
+            # Rx = np.array([[1, 0, 0],
+            #                [0, cosx, -sinx],
+            #                [0, sinx, cosx]])
+            # Ry = np.array([[cosy, 0, siny],
+            #                [0, 1, 0],
+            #                [-siny, 0, cosy]])
+            # Rz = np.array([[cosz, -sinz, 0],
+            #                [sinz, cosz, 0],
+            #                [0, 0, 1]])
+            # rotation_ab = Rx.dot(Ry).dot(Rz)
+
             translation_ab = np.array([np.random.uniform(-max_translation, max_translation), np.random.uniform(-max_translation, max_translation),
                                        np.random.uniform(-max_translation, max_translation)])
 
@@ -278,6 +285,7 @@ class Nerfstudio(DataParser):
             unregistration_matrix[:3, -1] = translation_ab.T
             CONSOLE.log(f"[yellow] unregistration_matrix is {unregistration_matrix}")
             unregistration_matrix = torch.from_numpy(unregistration_matrix)
+            # unregistration_matrix = torch.inverse(registration_matrix)
 
             poses = pose_utils.multiply(poses, unregistration_matrix)
             # poses = unregistration_matrix[:3, :] @ poses
@@ -355,6 +363,7 @@ class Nerfstudio(DataParser):
             metadata={
                 "depth_filenames": depth_filenames if len(depth_filenames) > 0 else None,
                 "depth_unit_scale_factor": self.config.depth_unit_scale_factor,
+                # "registration_matrix": registration_matrix if self.config.registration else None,
                 "unregistration_matrix": unregistration_matrix if self.config.registration else None,
                 "unregistration_rot_euler": unregistration_euler if self.config.registration else None,
                 "unregistration_translation": torch.from_numpy(translation_ab) if self.config.registration else None
