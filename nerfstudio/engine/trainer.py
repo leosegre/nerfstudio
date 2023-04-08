@@ -20,6 +20,7 @@ from __future__ import annotations
 import dataclasses
 import functools
 import os
+import random
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -47,6 +48,7 @@ from nerfstudio.utils.decorators import (
 from nerfstudio.utils.misc import step_check
 from nerfstudio.utils.writer import EventName, TimeWriter
 from nerfstudio.viewer.server import viewer_utils
+from tqdm import tqdm
 
 CONSOLE = Console(width=120)
 
@@ -220,6 +222,7 @@ class Trainer:
         camera_param_groups = {'camera_opt': param_groups["camera_opt"]}
         return Optimizers(optimizer_config, camera_param_groups)
 
+
     def train(self) -> None:
         """Train the model."""
         assert self.pipeline.datamanager.train_dataset is not None, "Missing DatsetInputs"
@@ -230,6 +233,36 @@ class Trainer:
 
         self._init_viewer_state()
         with TimeWriter(writer, EventName.TOTAL_TRAIN_TIME):
+
+            if self.pipeline.config.registration:
+                best_6dof = self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :]
+                with torch.no_grad():
+                    metrics_dict, images_dict = self.pipeline.get_train_image_metrics_and_images(step=0)
+                    best_loss = metrics_dict["loss"]
+                    self._update_register_cameras(step=0, pre_train=True)
+                for step in tqdm(range(500)):
+                    min_rand_rot = -5
+                    max_rand_rot = 5
+                    min_rand_trans = -1
+                    max_rand_trans = 1
+                    random_6dof_rot = (min_rand_rot - max_rand_rot) * torch.rand(3).to(device=self.device) + max_rand_rot
+                    random_6dof_trans = (min_rand_trans - max_rand_trans) * torch.rand(3).to(device=self.device) + max_rand_trans
+                    random_6dof = torch.concat((random_6dof_trans, random_6dof_rot))
+                    with torch.no_grad():
+                        self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = random_6dof
+                        metrics_dict, images_dict = self.pipeline.get_train_image_metrics_and_images(step=0)
+                        # import ipdb; ipdb.set_trace()
+                        if metrics_dict["loss"] < best_loss:
+                            best_loss = metrics_dict["loss"]
+                            best_6dof = random_6dof
+                            print(best_loss)
+                            print(best_6dof)
+                        self._update_register_cameras(step=step+1, pre_train=True)
+                with torch.no_grad():
+                    self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = best_6dof
+
+            # print(self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :])
+
             num_iterations = self.config.max_num_iterations
             step = 0
             for step in range(self._start_step, self._start_step + num_iterations):
@@ -244,6 +277,22 @@ class Trainer:
 
                     # time the forward pass
                     loss, loss_dict, metrics_dict = self.train_iteration(step)
+
+                    # Add noise
+                    # if self.pipeline.config.registration:
+                    #     with torch.no_grad():
+                    #         min_rand_rot = -0.2
+                    #         max_rand_rot = 0.2
+                    #         min_rand_trans = -0.00
+                    #         max_rand_trans = 0.00
+                    #         random_6dof_rot = (min_rand_rot - max_rand_rot) * torch.rand(3).to(
+                    #             device=self.device) + max_rand_rot
+                    #         random_6dof_trans = (min_rand_trans - max_rand_trans) * torch.rand(3).to(
+                    #             device=self.device) + max_rand_trans
+                    #         # print(loss)
+                    #         random_6dof = torch.concat((random_6dof_trans, random_6dof_rot)) * loss
+                    #
+                    #         self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] += random_6dof
 
                     # training callbacks after the training iteration
                     for callback in self.callbacks:
@@ -342,7 +391,7 @@ class Trainer:
                     "Error: GPU out of memory. Reduce resolution to prevent viewer from crashing."
                 )
     @check_viewer_enabled
-    def _update_register_cameras(self, step: int) -> None:
+    def _update_register_cameras(self, step: int, pre_train=False) -> None:
         """Updates the Camera to includes registered cameras
         Returns the time taken to render scene.
 
@@ -352,7 +401,7 @@ class Trainer:
         assert self.viewer_state is not None
         with TimeWriter(writer, EventName.ITER_VIS_TIME, step=step) as _:
             try:
-                self.viewer_state.update_register_cameras(self.pipeline.datamanager, step)
+                self.viewer_state.update_register_cameras(self.pipeline.datamanager, step, pre_train=False)
             except RuntimeError:
                 time.sleep(0.03)  # sleep to allow buffer to reset
                 assert self.viewer_state.vis is not None
@@ -426,6 +475,20 @@ class Trainer:
             for f in self.checkpoint_dir.glob("*"):
                 if f != ckpt_path:
                     f.unlink()
+
+
+    def pre_train_iteration(self) -> TRAIN_INTERATION_OUTPUT:
+        """Run one iteration with a batch of inputs. Returns dictionary of model losses.
+
+        Args:
+        """
+        with torch.no_grad():
+            metrics_dict, images_dict = self.model.get_image_metrics_and_images(outputs, batch)
+            _, loss_dict, metrics_dict = self.pipeline.get_train_loss_dict(step=0, full_images=True)
+            loss = functools.reduce(torch.add, loss_dict.values())
+
+        # Merging loss and metrics dict into a single output.
+        return loss, loss_dict, metrics_dict
 
     @profiler.time_function
     def train_iteration(self, step: int) -> TRAIN_INTERATION_OUTPUT:

@@ -305,19 +305,20 @@ class NerfactoModel(Model):
 
         return outputs
 
-    def get_metrics_dict(self, outputs, batch):
+    def get_metrics_dict(self, outputs, batch, full_images=False):
         metrics_dict = {}
         image = batch["image"].to(self.device)
         metrics_dict["psnr"] = self.psnr(outputs["rgb"], image)
-        if self.training:
+        if self.training and not full_images:
             metrics_dict["distortion"] = distortion_loss(outputs["weights_list"], outputs["ray_samples_list"])
         return metrics_dict
 
-    def get_loss_dict(self, outputs, batch, metrics_dict=None):
+    def get_loss_dict(self, outputs, batch, metrics_dict=None, full_images=False):
         loss_dict = {}
         image = batch["image"].to(self.device)
         loss_dict["rgb_loss"] = self.rgb_loss(image, outputs["rgb"])
-        if self.training:
+        loss_dict["avg_rgb_loss"] = self.rgb_loss(image.mean(axis=0), outputs["rgb"].mean(axis=0))
+        if self.training and not full_images:
             loss_dict["interlevel_loss"] = self.config.interlevel_loss_mult * interlevel_loss(
                 outputs["weights_list"], outputs["ray_samples_list"]
             )
@@ -354,13 +355,34 @@ class NerfactoModel(Model):
         image = torch.moveaxis(image, -1, 0)[None, ...]
         rgb = torch.moveaxis(rgb, -1, 0)[None, ...]
 
+        rgb = torch.clamp(rgb, 0, 1)
         psnr = self.psnr(image, rgb)
         ssim = self.ssim(image, rgb)
         lpips = self.lpips(image, rgb)
 
+        image_grayscale = image.mean(axis=1)
+        rgb_grayscale = rgb.mean(axis=1)
+        image_hist = torch.histc(image_grayscale, 2, 0, 1)
+        rgb_hist = torch.histc(rgb_grayscale, 2, 0, 1)
+
+        # image_hist = torch.concat((torch.histc(image.squeeze()[0], 32, 0, 1),
+        #                           torch.histc(image.squeeze()[1], 32, 0, 1),
+        #                           torch.histc(image.squeeze()[2], 32, 0, 1)))
+        # image_hist /= image_hist.sum()
+        # rgb_hist = torch.concat((torch.histc(rgb.squeeze()[0], 32, 0, 1),
+        #                         torch.histc(rgb.squeeze()[1], 32, 0, 1),
+        #                         torch.histc(rgb.squeeze()[2], 32, 0, 1)))
+        # rgb_hist /= rgb_hist.sum()
+
+        # print(image_hist.to(dtype=int))
+        # print(rgb_hist)
+        loss = self.rgb_loss(image_hist, rgb_hist)
+        # loss = (image_hist - rgb_hist).abs().sum()
+
         # all of these metrics will be logged as scalars
         metrics_dict = {"psnr": float(psnr.item()), "ssim": float(ssim)}  # type: ignore
         metrics_dict["lpips"] = float(lpips)
+        metrics_dict["loss"] = float(loss)
 
         images_dict = {"img": combined_rgb, "accumulation": combined_acc, "depth": combined_depth}
 

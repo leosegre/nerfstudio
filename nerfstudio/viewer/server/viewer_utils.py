@@ -381,7 +381,7 @@ class ViewerState:
         max_scene_box = torch.max(dataset.scene_box.aabb[1] - dataset.scene_box.aabb[0]).item()
         self.vis["renderingState/max_box_size"].write(max_scene_box)
 
-    def update_register_cameras(self, datamanager: VanillaDataManager, step) -> None:
+    def update_register_cameras(self, datamanager: VanillaDataManager, step, pre_train=False) -> None:
         """Draw new register images in the viewer.
 
         Args:
@@ -389,7 +389,7 @@ class ViewerState:
         """
         # draw the new training cameras and images
         image_indices = self._pick_drawn_image_idxs(len(datamanager.train_dataset))
-        camera_opt_to_camera = datamanager.train_camera_optimizer(image_indices)
+        camera_opt_to_camera = datamanager.train_camera_optimizer([0])
         for idx in image_indices:
             image = datamanager.train_dataset[idx]["image"]
             bgr = image[..., [2, 1, 0]]
@@ -410,7 +410,10 @@ class ViewerState:
             camera_to_world_tensor = torch.from_numpy(np.array(camera_json["camera_to_world"])).unsqueeze(0).to(device=camera_opt_to_camera.device, dtype=torch.float32)
             camera_json["camera_to_world"] = pose_utils.multiply(camera_to_world_tensor, camera_opt_to_camera).squeeze().tolist()
             # print(camera_json["camera_to_world"])
-            self.vis[f"sceneState/cameras/{idx:06d}_step_{step:06d}"].write(camera_json)
+            if pre_train:
+                self.vis[f"sceneState/cameras/{idx:06d}_step_pre_train{step:06d}"].write(camera_json)
+            else:
+                self.vis[f"sceneState/cameras/{idx:06d}_step_{step:06d}"].write(camera_json)
 
     def _check_camera_path_payload(self, trainer, step: int):
         """Check to see if the camera path export button was pressed."""

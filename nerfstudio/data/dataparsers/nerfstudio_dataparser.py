@@ -40,6 +40,7 @@ import nerfstudio.utils.poses as pose_utils
 
 from scipy.spatial.transform import Rotation
 
+import imageio
 
 
 CONSOLE = Console(width=120)
@@ -76,6 +77,8 @@ class NerfstudioDataParserConfig(DataParserConfig):
     """Max Angle to rotate for registration test (for example - 4 -> pi/4)."""
     max_translation: float = 0.2
     """Max translation for registration test."""
+    blender: bool = False
+    """dataset from blender."""
 
 
 @dataclass
@@ -83,12 +86,15 @@ class Nerfstudio(DataParser):
     """Nerfstudio DatasetParser"""
 
     config: NerfstudioDataParserConfig
-    downscale_factor: Optional[int] = None
+    downscale_factor: Optional[int] = 1
 
     def _generate_dataparser_outputs(self, split="train"):
         # pylint: disable=too-many-statements
 
-        if self.config.data.suffix == ".json":
+        if self.config.blender:
+            meta = load_from_json(self.config.data / f"transforms_{split}.json")
+            data_dir = self.config.data
+        elif self.config.data.suffix == ".json":
             meta = load_from_json(self.config.data)
             data_dir = self.config.data.parent
         else:
@@ -101,12 +107,24 @@ class Nerfstudio(DataParser):
         poses = []
         num_skipped_image_filenames = 0
 
-        fx_fixed = "fl_x" in meta
-        fy_fixed = "fl_y" in meta
-        cx_fixed = "cx" in meta
-        cy_fixed = "cy" in meta
-        height_fixed = "h" in meta
-        width_fixed = "w" in meta
+        if self.config.blender:
+            image_0_filename = meta["frames"][0]["file_path"]
+            image_0_filename = self.config.data / Path(image_0_filename.replace("./", "") + ".png")
+            img_0 = imageio.imread(image_0_filename)
+            height_fixed, width_fixed = img_0.shape[:2]
+            camera_angle_x = float(meta["camera_angle_x"])
+            fx_fixed = 0.5 * width_fixed / np.tan(0.5 * camera_angle_x)
+            fy_fixed = fx_fixed
+            cx_fixed = width_fixed / 2.0
+            cy_fixed = height_fixed / 2.0
+            # camera_to_world = torch.from_numpy(poses[:, :3])  # camera to world transform
+        else:
+            fx_fixed = "fl_x" in meta
+            fy_fixed = "fl_y" in meta
+            cx_fixed = "cx" in meta
+            cy_fixed = "cy" in meta
+            height_fixed = "h" in meta
+            width_fixed = "w" in meta
         distort_fixed = False
         for distort_key in ["k1", "k2", "k3", "p1", "p2"]:
             if distort_key in meta:
@@ -121,8 +139,11 @@ class Nerfstudio(DataParser):
         distort = []
 
         for frame in meta["frames"]:
-            filepath = PurePath(frame["file_path"])
-            fname = self._get_fname(filepath, data_dir)
+            if self.config.blender:
+                fname = self.config.data / Path(frame["file_path"].replace("./", "") + ".png")
+            else:
+                filepath = PurePath(frame["file_path"])
+                fname = self._get_fname(filepath, data_dir)
             if not fname.exists():
                 num_skipped_image_filenames += 1
                 continue
@@ -311,12 +332,12 @@ class Nerfstudio(DataParser):
             camera_type = CameraType.PERSPECTIVE
 
         idx_tensor = torch.tensor(indices, dtype=torch.long)
-        fx = float(meta["fl_x"]) if fx_fixed else torch.tensor(fx, dtype=torch.float32)[idx_tensor]
-        fy = float(meta["fl_y"]) if fy_fixed else torch.tensor(fy, dtype=torch.float32)[idx_tensor]
-        cx = float(meta["cx"]) if cx_fixed else torch.tensor(cx, dtype=torch.float32)[idx_tensor]
-        cy = float(meta["cy"]) if cy_fixed else torch.tensor(cy, dtype=torch.float32)[idx_tensor]
-        height = int(meta["h"]) if height_fixed else torch.tensor(height, dtype=torch.int32)[idx_tensor]
-        width = int(meta["w"]) if width_fixed else torch.tensor(width, dtype=torch.int32)[idx_tensor]
+        fx = float(fx_fixed) if fx_fixed else torch.tensor(fx, dtype=torch.float32)[idx_tensor]
+        fy = float(fy_fixed) if fy_fixed else torch.tensor(fy, dtype=torch.float32)[idx_tensor]
+        cx = float(cx_fixed) if cx_fixed else torch.tensor(cx, dtype=torch.float32)[idx_tensor]
+        cy = float(cy_fixed) if cy_fixed else torch.tensor(cy, dtype=torch.float32)[idx_tensor]
+        height = int(height_fixed) if height_fixed else torch.tensor(height, dtype=torch.int32)[idx_tensor]
+        width = int(width_fixed) if width_fixed else torch.tensor(width, dtype=torch.int32)[idx_tensor]
         if distort_fixed:
             distortion_params = camera_utils.get_distortion_params(
                 k1=float(meta["k1"]) if "k1" in meta else 0.0,

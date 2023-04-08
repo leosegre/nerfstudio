@@ -260,7 +260,7 @@ class VanillaPipeline(Pipeline):
         return self.model.device
 
     @profiler.time_function
-    def get_train_loss_dict(self, step: int):
+    def get_train_loss_dict(self, step: int, full_images=False):
         """This function gets your training loss dict. This will be responsible for
         getting the next batch of data from the DataManager and interfacing with the
         Model class, feeding the data to the model's forward function.
@@ -268,9 +268,14 @@ class VanillaPipeline(Pipeline):
         Args:
             step: current iteration step to update sampler if using DDP (distributed)
         """
-        ray_bundle, batch = self.datamanager.next_train(step)
-        model_outputs = self.model(ray_bundle)
-        metrics_dict = self.model.get_metrics_dict(model_outputs, batch)
+
+        if full_images:
+            _, ray_bundle, batch = self.datamanager.next_train_image(step)
+            model_outputs = self.model.get_outputs_for_camera_ray_bundle(ray_bundle)
+        else:
+            ray_bundle, batch = self.datamanager.next_train(step)
+            model_outputs = self.model(ray_bundle)
+        metrics_dict = self.model.get_metrics_dict(model_outputs, batch, full_images)
 
         if self.config.datamanager.camera_optimizer is not None:
             # camera_opt_param_group = self.config.datamanager.camera_optimizer.param_group
@@ -347,9 +352,10 @@ class VanillaPipeline(Pipeline):
                 # print("unregistration_translation", unregistration_translation)
                 # print("unregistration_translation_ture", self.datamanager.train_dataparser_outputs.metadata["unregistration_translation"])
 
-        loss_dict = self.model.get_loss_dict(model_outputs, batch, metrics_dict)
+        loss_dict = self.model.get_loss_dict(model_outputs, batch, metrics_dict, full_images)
 
         return model_outputs, loss_dict, metrics_dict
+
 
     def forward(self):
         """Blank forward method
@@ -373,6 +379,23 @@ class VanillaPipeline(Pipeline):
         loss_dict = self.model.get_loss_dict(model_outputs, batch, metrics_dict)
         self.train()
         return model_outputs, loss_dict, metrics_dict
+
+    def get_train_image_metrics_and_images(self, step: int):
+        """This function gets your evaluation loss dict. It needs to get the data
+        from the DataManager and feed it to the model's forward function
+
+        Args:
+            step: current iteration step
+        """
+
+        image_idx, camera_ray_bundle, batch = self.datamanager.next_train_image(step)
+        outputs = self.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
+        metrics_dict, images_dict = self.model.get_image_metrics_and_images(outputs, batch)
+        assert "image_idx" not in metrics_dict
+        metrics_dict["image_idx"] = image_idx
+        assert "num_rays" not in metrics_dict
+        metrics_dict["num_rays"] = len(camera_ray_bundle)
+        return metrics_dict, images_dict
 
     @profiler.time_function
     def get_eval_image_metrics_and_images(self, step: int):

@@ -31,6 +31,8 @@ from torchtyping import TensorType
 from nerfstudio.data.dataparsers.base_dataparser import DataparserOutputs
 from nerfstudio.data.utils.data_utils import get_image_mask_tensor_from_path
 
+import scipy
+
 
 class InputDataset(Dataset):
     """Dataset that returns images.
@@ -40,7 +42,7 @@ class InputDataset(Dataset):
         scale_factor: The scaling factor for the dataparser outputs
     """
 
-    def __init__(self, dataparser_outputs: DataparserOutputs, scale_factor: float = 1.0):
+    def __init__(self, dataparser_outputs: DataparserOutputs, scale_factor: float = 1.0, registration=False):
         super().__init__()
         self._dataparser_outputs = dataparser_outputs
         self.has_masks = dataparser_outputs.mask_filenames is not None
@@ -49,6 +51,7 @@ class InputDataset(Dataset):
         self.metadata = deepcopy(dataparser_outputs.metadata)
         self.cameras = deepcopy(dataparser_outputs.cameras)
         self.cameras.rescale_output_resolution(scaling_factor=scale_factor)
+        self.registration = registration
 
     def __len__(self):
         return len(self._dataparser_outputs.image_filenames)
@@ -102,6 +105,12 @@ class InputDataset(Dataset):
             assert (
                 data["mask"].shape[:2] == data["image"].shape[:2]
             ), f"Mask and image have different shapes. Got {data['mask'].shape[:2]} and {data['image'].shape[:2]}"
+        # if self.registration:
+        #     threshold = 0
+        #     data["mask"] = scipy.ndimage.gaussian_laplace(image, sigma=1) > threshold
+        #     data["mask"] = scipy.ndimage.binary_dilation(data["mask"])
+            # print("mask min", data["mask"].min())
+            # print("mask max", data["mask"].max())
         metadata = self.get_metadata(data)
         data.update(metadata)
         return data

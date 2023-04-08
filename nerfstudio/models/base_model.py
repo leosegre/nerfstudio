@@ -176,6 +176,7 @@ class Model(nn.Module):
             end_idx = i + num_rays_per_chunk
             ray_bundle = camera_ray_bundle.get_row_major_sliced_ray_bundle(start_idx, end_idx)
             outputs = self.forward(ray_bundle=ray_bundle)
+            # print(outputs["rgb"])
             for output_name, output in outputs.items():  # type: ignore
                 outputs_lists[output_name].append(output)
         outputs = {}

@@ -427,6 +427,7 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
         return InputDataset(
             dataparser_outputs=self.train_dataparser_outputs,
             scale_factor=self.config.camera_res_scale_factor,
+            registration=self.dataparser.config.registration,
         )
 
     def create_eval_dataset(self) -> InputDataset:
@@ -468,12 +469,18 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
         self.iter_train_image_dataloader = iter(self.train_image_dataloader)
         self.train_pixel_sampler = self._get_pixel_sampler(self.train_dataset, self.config.train_num_rays_per_batch)
         self.train_camera_optimizer = self.config.camera_optimizer.setup(
-            num_cameras=self.train_dataset.cameras.size, device=self.device
+            num_cameras=self.train_dataset.cameras.size, device=self.device, registration=self.dataparser.config.registration
         )
         self.train_ray_generator = RayGenerator(
             self.train_dataset.cameras.to(self.device),
             self.train_camera_optimizer,
         )
+        self.train_dataloader = RandIndicesEvalDataloader(
+            input_dataset=self.train_dataset,
+            device=self.device,
+            num_workers=self.world_size * 4,
+        )
+
 
     def setup_eval(self):
         """Sets up the data loader for evaluation"""
@@ -491,7 +498,7 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
         self.iter_eval_image_dataloader = iter(self.eval_image_dataloader)
         self.eval_pixel_sampler = self._get_pixel_sampler(self.eval_dataset, self.config.eval_num_rays_per_batch)
         self.eval_camera_optimizer = self.config.camera_optimizer.setup(
-            num_cameras=self.eval_dataset.cameras.size, device=self.device
+            num_cameras=self.eval_dataset.cameras.size, device=self.device, registration=self.dataparser.config.registration
         )
         self.eval_ray_generator = RayGenerator(
             self.eval_dataset.cameras.to(self.device),
@@ -518,6 +525,13 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
         ray_indices = batch["indices"]
         ray_bundle = self.train_ray_generator(ray_indices)
         return ray_bundle, batch
+
+    def next_train_image(self, step: int) -> Tuple[int, RayBundle, Dict]:
+        for camera_ray_bundle, batch in self.train_dataloader:
+            assert camera_ray_bundle.camera_indices is not None
+            image_idx = int(camera_ray_bundle.camera_indices[0, 0, 0])
+            return image_idx, camera_ray_bundle, batch
+        raise ValueError("No more train images")
 
     def next_eval(self, step: int) -> Tuple[RayBundle, Dict]:
         """Returns the next batch of data from the eval dataloader."""

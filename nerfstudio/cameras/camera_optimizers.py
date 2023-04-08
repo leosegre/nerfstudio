@@ -74,18 +74,23 @@ class CameraOptimizer(nn.Module):
         config: CameraOptimizerConfig,
         num_cameras: int,
         device: Union[torch.device, str],
+        registration: bool = False,
         **kwargs,  # pylint: disable=unused-argument
     ) -> None:
         super().__init__()
         self.config = config
         self.num_cameras = num_cameras
         self.device = device
+        self.registration = registration
 
         # Initialize learnable parameters.
         if self.config.mode == "off":
             pass
         elif self.config.mode in ("SO3xR3", "SE3"):
-            self.pose_adjustment = torch.nn.Parameter(torch.zeros((num_cameras, 6), device=device))
+            if self.registration:
+                self.pose_adjustment = torch.nn.Parameter(torch.zeros((1, 6), device=device))
+            else:
+                self.pose_adjustment = torch.nn.Parameter(torch.zeros((num_cameras, 6), device=device))
         else:
             assert_never(self.config.mode)
 
@@ -112,6 +117,8 @@ class CameraOptimizer(nn.Module):
         """
         outputs = []
 
+        # if self.registration:
+        #     indices = torch.zeros_like(torch.tensor(indices))
         # Apply learned transformation delta.
         if self.config.mode == "off":
             pass
