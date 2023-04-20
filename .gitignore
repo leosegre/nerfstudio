@@ -172,6 +172,7 @@ events.out.*
 # Data
 data
 !*/data
+!docs/reference/api/data/
 
 # Misc
 old/
