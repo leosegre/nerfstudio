@@ -18,6 +18,7 @@ NeRF implementation that combines many recent advancements.
 
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, Type
 
@@ -60,6 +61,11 @@ from nerfstudio.model_components.scene_colliders import NearFarCollider
 from nerfstudio.model_components.shaders import NormalsShader
 from nerfstudio.models.base_model import Model, ModelConfig
 from nerfstudio.utils import colormaps
+
+from torchvision.utils import save_image
+from scipy.ndimage import gaussian_filter
+import cv2 as cv
+
 
 
 @dataclass
@@ -317,7 +323,6 @@ class NerfactoModel(Model):
         loss_dict = {}
         image = batch["image"].to(self.device)
         loss_dict["rgb_loss"] = self.rgb_loss(image, outputs["rgb"])
-        loss_dict["avg_rgb_loss"] = self.rgb_loss(image.mean(axis=0), outputs["rgb"].mean(axis=0))
         if self.training and not full_images:
             loss_dict["interlevel_loss"] = self.config.interlevel_loss_mult * interlevel_loss(
                 outputs["weights_list"], outputs["ray_samples_list"]
@@ -352,32 +357,120 @@ class NerfactoModel(Model):
         combined_depth = torch.cat([depth], dim=1)
 
         # Switch images from [H, W, C] to [1, C, H, W] for metrics computations
-        image = torch.moveaxis(image, -1, 0)[None, ...]
-        rgb = torch.moveaxis(rgb, -1, 0)[None, ...]
+        torch_image = torch.moveaxis(image, -1, 0)[None, ...]
+        torch_rgb = torch.moveaxis(rgb, -1, 0)[None, ...]
 
-        rgb = torch.clamp(rgb, 0, 1)
-        psnr = self.psnr(image, rgb)
-        ssim = self.ssim(image, rgb)
-        lpips = self.lpips(image, rgb)
+        torch_rgb = torch.clamp(torch_rgb, 0, 1)
+        psnr = self.psnr(torch_image, torch_rgb)
+        ssim = self.ssim(torch_image, torch_rgb)
+        lpips = self.lpips(torch_image, torch_rgb)
 
-        image_grayscale = image.mean(axis=1)
-        rgb_grayscale = rgb.mean(axis=1)
-        image_hist = torch.histc(image_grayscale, 2, 0, 1)
-        rgb_hist = torch.histc(rgb_grayscale, 2, 0, 1)
+        # image_grayscale = image.mean(axis=1)
+        # rgb_grayscale = rgb.mean(axis=1)
+        # image_hist = torch.histc(image_grayscale, 2, 0, 1)
+        # rgb_hist = torch.histc(rgb_grayscale, 2, 0, 1)
 
-        # image_hist = torch.concat((torch.histc(image.squeeze()[0], 32, 0, 1),
-        #                           torch.histc(image.squeeze()[1], 32, 0, 1),
-        #                           torch.histc(image.squeeze()[2], 32, 0, 1)))
-        # image_hist /= image_hist.sum()
-        # rgb_hist = torch.concat((torch.histc(rgb.squeeze()[0], 32, 0, 1),
-        #                         torch.histc(rgb.squeeze()[1], 32, 0, 1),
-        #                         torch.histc(rgb.squeeze()[2], 32, 0, 1)))
-        # rgb_hist /= rgb_hist.sum()
+
+
+        # num_bins = 10
+        # image_hist = torch.zeros((image.shape[0], 3*num_bins))
+        # rgb_hist = torch.zeros((rgb.shape[0], 3*num_bins))
+        # print(rgb[rgb < 0.99])
+        # for i in range(image.shape[0]):
+        #     image_hist[i] = torch.concat((torch.histc(image[i][0], num_bins, 0, 1),
+        #                               torch.histc(image[i][1], num_bins, 0, 1),
+        #                               torch.histc(image[i][2], num_bins, 0, 1)))
+        #     image_hist[i] /= image_hist[i].sum()
+        #     rgb_hist[i] = torch.concat((torch.histc(rgb[i][0], num_bins, 0, 1),
+        #                             torch.histc(rgb[i][1], num_bins, 0, 1),
+        #                             torch.histc(rgb[i][2], num_bins, 0, 1)))
+        #     rgb_hist[i] /= rgb_hist[i].sum()
+            # save_image(rgb[i], f"/home/leo/nerfstudio_reg/nerfstudio/check/image_{random.randint(0, 1000)}.png")
+        # print(rgb_hist)
 
         # print(image_hist.to(dtype=int))
         # print(rgb_hist)
-        loss = self.rgb_loss(image_hist, rgb_hist)
+        # loss = self.rgb_loss(image_hist, rgb_hist)
         # loss = (image_hist - rgb_hist).abs().sum()
+
+        # image_gauss = gaussian_filter(image.cpu().numpy(), sigma=(1, 1, 5, 5))
+        # rgb_gauss = gaussian_filter(rgb.cpu().numpy(), sigma=(1, 1, 5, 5))
+        # loss = self.rgb_loss(torch.from_numpy(image_gauss), torch.from_numpy(rgb_gauss))
+
+        image_numpy = image.cpu().numpy()
+        rgb_numpy = rgb.cpu().numpy()
+
+        gray_image = cv.cvtColor(image_numpy, cv.COLOR_BGR2GRAY)
+        gray_image = cv.normalize(gray_image, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+        gray_rgb = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2GRAY)
+        gray_rgb = cv.normalize(gray_rgb, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+        sift = cv.SIFT_create()
+        kp_image, des_image = sift.detectAndCompute(gray_image, None)
+        kp_rgb, des_rgb = sift.detectAndCompute(gray_rgb, None)
+
+        # FLANN parameters
+        FLANN_INDEX_KDTREE = 1
+        MIN_MATCH_COUNT = 30
+        index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
+        search_params = dict(checks=50)  # or pass empty dictionary
+        flann = cv.FlannBasedMatcher(index_params, search_params)
+        matches = flann.knnMatch(des_image, des_rgb, k=2)
+        # Need to draw only good matches, so create a mask
+        good = []
+        # ratio test as per Lowe's paper
+        for i, (m, n) in enumerate(matches):
+            if m.distance < 0.7 * n.distance:
+                good.append(m)
+
+        if len(good) > MIN_MATCH_COUNT:
+            src_pts = np.float32([kp_image[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
+            dst_pts = np.float32([kp_rgb[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
+            M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 5.0)
+            matchesMask = mask.ravel().tolist()
+            h, w = gray_image.shape
+            pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
+            dst = cv.perspectiveTransform(pts, M)
+            gray_rgb = cv.polylines(gray_rgb, [np.int32(dst)], True, (0, 0, 255), 3, cv.LINE_AA)
+        else:
+            print("Not enough matches are found - {}/{}".format(len(good), MIN_MATCH_COUNT))
+            matchesMask = None
+
+        draw_params = dict(matchColor=(0, 255, 0),
+                           singlePointColor=None,
+                           matchesMask=matchesMask,
+                           flags=2)
+        img3 = cv.drawMatches(gray_image, kp_image, gray_rgb, kp_rgb, good, None, **draw_params)
+
+
+        if matchesMask == None:
+            loss = torch.inf
+        else:
+            # QR decomposition
+            rot_mat = M[:2, :2]
+            trans_mat = M[:2, 2]
+            a = rot_mat[0, 0]
+            b = rot_mat[0, 1]
+            d = rot_mat[1, 0]
+            e = rot_mat[1, 1]
+            c = trans_mat[0]
+            f = trans_mat[1]
+
+
+            det_rot = np.linalg.det(rot_mat)
+
+            p = np.sqrt(a**2 + b**2)
+            r = det_rot/p
+            q = (a*d+b*e)/det_rot
+            phi = np.arctan2(b, a)
+
+            lamda_rot = 1
+            loss = np.sqrt((1-p)**2) + np.sqrt((1-r)**2) + np.abs(q) + np.abs(c/w) + np.abs(f/h) + lamda_rot*np.abs(phi)
+
+            cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/image_loss_{loss:.3f}_p_{1-p:.3f}_r_{1-r:.3f}_q_{q:.3f}"
+                       f"_c_{c:.3f}_f_{f:.3f}_phi_{np.abs(phi):.3f}.png", img3)
+
+
+            # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/image_loss_{loss:.0f}.png", img3)
 
         # all of these metrics will be logged as scalars
         metrics_dict = {"psnr": float(psnr.item()), "ssim": float(ssim)}  # type: ignore

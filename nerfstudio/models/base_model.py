@@ -175,8 +175,9 @@ class Model(nn.Module):
             start_idx = i
             end_idx = i + num_rays_per_chunk
             ray_bundle = camera_ray_bundle.get_row_major_sliced_ray_bundle(start_idx, end_idx)
+            # import ipdb; ipdb.set_trace();
             outputs = self.forward(ray_bundle=ray_bundle)
-            # print(outputs["rgb"])
+            # print(ray_bundle)
             for output_name, output in outputs.items():  # type: ignore
                 outputs_lists[output_name].append(output)
         outputs = {}

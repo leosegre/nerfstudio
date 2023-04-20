@@ -62,7 +62,7 @@ class PixelSampler:  # pylint: disable=too-few-public-methods
             mask: mask of possible pixels in an image to sample from.
         """
         if isinstance(mask, torch.Tensor):
-            nonzero_indices = torch.nonzero(mask[..., 0], as_tuple=False)
+            nonzero_indices = torch.nonzero(mask, as_tuple=False)
             chosen_indices = random.sample(range(len(nonzero_indices)), k=batch_size)
             indices = nonzero_indices[chosen_indices]
         else:

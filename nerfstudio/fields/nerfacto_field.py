@@ -320,6 +320,7 @@ class TCNNNerfactoField(Field):
         )
         rgb = self.mlp_head(h).view(*outputs_shape, -1).to(directions)
         outputs.update({FieldHeadNames.RGB: rgb})
+        # print(rgb)
 
         return outputs
 

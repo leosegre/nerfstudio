@@ -69,6 +69,14 @@ class RAdamOptimizerConfig(OptimizerConfig):
     weight_decay: float = 0
     """The weight decay to use."""
 
+class SGDOptimizerConfig(OptimizerConfig):
+    """Basic optimizer config with SGD"""
+
+    _target: Type = torch.optim.SGD
+    weight_decay: float = 0
+    """The weight decay to use."""
+    momentum: float = 0
+    """The momentum to use."""
 
 class Optimizers:
     """A set of optimizers.

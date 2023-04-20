@@ -32,6 +32,11 @@ from nerfstudio.data.dataparsers.base_dataparser import DataparserOutputs
 from nerfstudio.data.utils.data_utils import get_image_mask_tensor_from_path
 
 import scipy
+from torchvision.utils import save_image
+import random
+import cv2 as cv
+
+
 
 
 class InputDataset(Dataset):
@@ -106,11 +111,40 @@ class InputDataset(Dataset):
                 data["mask"].shape[:2] == data["image"].shape[:2]
             ), f"Mask and image have different shapes. Got {data['mask'].shape[:2]} and {data['image'].shape[:2]}"
         # if self.registration:
-        #     threshold = 0
-        #     data["mask"] = scipy.ndimage.gaussian_laplace(image, sigma=1) > threshold
-        #     data["mask"] = scipy.ndimage.binary_dilation(data["mask"])
-            # print("mask min", data["mask"].min())
-            # print("mask max", data["mask"].max())
+        #     mask = np.zeros_like(image[..., 0])
+        #     gray = cv.cvtColor(image.numpy()*255.0, cv.COLOR_BGR2GRAY)
+        #     gray = cv.normalize(gray, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+        #     sift = cv.SIFT_create()
+        #     kp = sift.detect(gray, None)
+        #     # img = cv.drawKeypoints(gray, kp, gray)
+        #     # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/image_{random.randint(0, 1000)}.png", img)
+        #     for point in kp:
+        #         x, y = point.pt  # Each keypoint as an x, y tuple  https://stackoverflow.com/questions/35884409/how-to-extract-x-y-coordinates-from-opencv-cv2-keypoint-object
+        #
+        #         x = int(round(x))  # Round an cast to int
+        #         y = int(round(y))
+        #
+        #         # Draw a cross with (x, y) center
+        #         mask[y, x] = 1
+        #         # cv2.drawMarker(img_kp, (x, y), color, markerType=cv2.MARKER_CROSS, markerSize=5, thickness=1,
+        #         #                line_type=cv2.LINE_8)
+        #     mask = scipy.ndimage.binary_dilation(mask, structure=np.ones((20, 20)))
+        #     mask = mask != 0
+        #     # mask = ~(image > 0.88).all(axis=2)
+        #     # print(mask.sum())
+        #     # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/image_{random.randint(0, 1000)}.png", np.array(mask) * 255)
+        #     # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/image_{random.randint(0, 1000)}.png", np.array(image) * 255)
+        #     data["mask"] = mask
+        #
+        #     # for i in range(image.shape[2]):
+        #     #     mask[..., i] = scipy.ndimage.gaussian_laplace(image[..., i], sigma=1) > threshold
+        #     #     # mask[..., i] = scipy.ndimage.binary_dilation(mask[..., i])
+        #     # mask = mask.any(axis=2)
+        #     # data["mask"] = scipy.ndimage.gaussian_laplace(image, sigma=1) > threshold
+        #     # data["mask"] = scipy.ndimage.binary_dilation(data["mask"])
+        #     # save_image(torch.from_numpy(data["mask"]).float().T, f"/home/leo/nerfstudio_reg/nerfstudio/check/image_{random.randint(0, 1000)}.png")
+        #     # print("mask min", data["mask"].min())
+        #     # print("mask max", data["mask"].max())
         metadata = self.get_metadata(data)
         data.update(metadata)
         return data

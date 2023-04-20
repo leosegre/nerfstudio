@@ -475,10 +475,20 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
             self.train_dataset.cameras.to(self.device),
             self.train_camera_optimizer,
         )
+        # for loading full images
+        self.fixed_indices_train_dataloader = FixedIndicesEvalDataloader(
+            input_dataset=self.train_dataset,
+            device=self.device,
+            num_workers=self.world_size * 4,
+            registration=self.dataparser.config.registration,
+            ray_generator=self.train_ray_generator,
+        )
         self.train_dataloader = RandIndicesEvalDataloader(
             input_dataset=self.train_dataset,
             device=self.device,
             num_workers=self.world_size * 4,
+            registration=self.dataparser.config.registration,
+            ray_generator=self.train_ray_generator,
         )
 
 
@@ -530,6 +540,7 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
         for camera_ray_bundle, batch in self.train_dataloader:
             assert camera_ray_bundle.camera_indices is not None
             image_idx = int(camera_ray_bundle.camera_indices[0, 0, 0])
+            # print(camera_ray_bundle)
             return image_idx, camera_ray_bundle, batch
         raise ValueError("No more train images")
 

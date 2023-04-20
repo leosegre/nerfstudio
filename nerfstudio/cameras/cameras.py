@@ -690,7 +690,7 @@ class Cameras(TensorDataclass):
         assert c2w.shape == num_rays_shape + (3, 4)
 
         if camera_opt_to_camera is not None:
-            c2w = pose_utils.multiply(c2w, camera_opt_to_camera)
+            c2w = pose_utils.multiply(camera_opt_to_camera, c2w)
         rotation = c2w[..., :3, :3]  # (..., 3, 3)
         assert rotation.shape == num_rays_shape + (3, 3)
 

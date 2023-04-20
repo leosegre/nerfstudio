@@ -299,8 +299,8 @@ class VanillaPipeline(Pipeline):
                 # print("camera_opt_transform_matrix", camera_opt_transform_matrix)
                 # print("unregistration_matrix", unregistration_matrix)
             if self.config.registration:
-                # registration_matrix = self.datamanager.train_dataparser_outputs.metadata["registration_matrix"]
-                unregistration_matrix = self.datamanager.train_dataparser_outputs.metadata["unregistration_matrix"]
+                registration_matrix = self.datamanager.train_dataparser_outputs.metadata["registration_matrix"]
+                # unregistration_matrix = self.datamanager.train_dataparser_outputs.metadata["unregistration_matrix"]
                 camera_opt_transform_matrix = self.datamanager.train_camera_optimizer([0])
                 # print(unregistration_matrix.shape)
                 # print(camera_opt_transform_matrix.shape)
@@ -313,18 +313,18 @@ class VanillaPipeline(Pipeline):
                         return torch.tensor(np.array(eulers), dtype=torch.float32)
 
                 camera_opt_rot_euler = npmat2euler(camera_opt_transform_matrix[:, :3, :3])
-                registration_rot_euler = self.datamanager.train_dataparser_outputs.metadata["unregistration_rot_euler"]
+                registration_rot_euler = self.datamanager.train_dataparser_outputs.metadata["registration_rot_euler"]
                 camera_opt_translation = camera_opt_transform_matrix[:, :, 3].cpu()
-                registration_translation = self.datamanager.train_dataparser_outputs.metadata["unregistration_translation"]
+                registration_translation = self.datamanager.train_dataparser_outputs.metadata["registration_translation"]
 
                 # rotation_mse = torch.mean((camera_opt_rot_euler - registration_rot_euler).pow(2))
                 # rotation_rmse = torch.sqrt(rotation_mse)
                 # translation_mse = torch.mean((camera_opt_translation - registration_translation).pow(2))
                 # translation_rmse = torch.sqrt(translation_mse)
 
-                rotation_mse = torch.mean((camera_opt_rot_euler + registration_rot_euler).pow(2))
+                rotation_mse = torch.mean((camera_opt_rot_euler - registration_rot_euler).pow(2))
                 rotation_rmse = torch.sqrt(rotation_mse)
-                translation_mse = torch.mean((camera_opt_translation + registration_translation).pow(2))
+                translation_mse = torch.mean((camera_opt_translation - registration_translation).pow(2))
                 translation_rmse = torch.sqrt(translation_mse)
 
 
@@ -387,7 +387,7 @@ class VanillaPipeline(Pipeline):
         Args:
             step: current iteration step
         """
-
+        self.train()
         image_idx, camera_ray_bundle, batch = self.datamanager.next_train_image(step)
         outputs = self.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
         metrics_dict, images_dict = self.model.get_image_metrics_and_images(outputs, batch)
@@ -397,6 +397,46 @@ class VanillaPipeline(Pipeline):
         metrics_dict["num_rays"] = len(camera_ray_bundle)
         return metrics_dict, images_dict
 
+
+    def get_average_train_image_metrics(self, step: Optional[int] = None):
+        """Iterate over all the images in the eval dataset and get the average.
+
+        Returns:
+            metrics_dict: dictionary of metrics
+        """
+        self.train()
+        metrics_dict_list = []
+        num_images = len(self.datamanager.fixed_indices_train_dataloader)
+        # with Progress(
+        #     TextColumn("[progress.description]{task.description}"),
+        #     BarColumn(),
+        #     TimeElapsedColumn(),
+        #     MofNCompleteColumn(),
+        #     transient=True,
+        # ) as progress:
+            # task = progress.add_task("[green]Evaluating all train images for registration...", total=num_images)
+        for camera_ray_bundle, batch in self.datamanager.fixed_indices_train_dataloader:
+            # time this the following line
+            inner_start = time()
+            height, width = camera_ray_bundle.shape
+            num_rays = height * width
+            outputs = self.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
+            metrics_dict, _ = self.model.get_image_metrics_and_images(outputs, batch)
+            assert "num_rays_per_sec" not in metrics_dict
+            metrics_dict["num_rays_per_sec"] = num_rays / (time() - inner_start)
+            fps_str = "fps"
+            assert fps_str not in metrics_dict
+            metrics_dict[fps_str] = metrics_dict["num_rays_per_sec"] / (height * width)
+            metrics_dict_list.append(metrics_dict)
+            # progress.advance(task)
+        # average the metrics list
+        metrics_dict = {}
+        for key in metrics_dict_list[0].keys():
+            metrics_dict[key] = float(
+                torch.mean(torch.tensor([metrics_dict[key] for metrics_dict in metrics_dict_list]))
+            )
+        self.train()
+        return metrics_dict
     @profiler.time_function
     def get_eval_image_metrics_and_images(self, step: int):
         """This function gets your evaluation loss dict. It needs to get the data

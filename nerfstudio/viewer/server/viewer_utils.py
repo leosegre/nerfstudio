@@ -364,11 +364,12 @@ class ViewerState:
             camera_json = dataset.cameras.to_json(camera_idx=idx, image=bgr, max_size=100)
             self.vis[f"sceneState/cameras/{idx:06d}"].write(camera_json)
             if registration:
-                inv_unregistration_matrix = torch.inverse(dataset.metadata["unregistration_matrix"])
+                # inv_unregistration_matrix = torch.inverse(dataset.metadata["unregistration_matrix"])
+                registration_matrix = dataset.metadata["registration_matrix"]
                 camera_to_world_tensor = torch.cat((torch.from_numpy(np.array(camera_json["camera_to_world"], dtype=np.float32)), \
                                                     torch.tensor([[0, 0, 0, 1]], dtype=torch.float32)), 0)
                 # camera_json["camera_to_world"] = (inv_unregistration_matrix @ camera_to_world_tensor)[:3, :].tolist()
-                camera_json["camera_to_world"] = (camera_to_world_tensor @ inv_unregistration_matrix)[:3, :].tolist()
+                camera_json["camera_to_world"] = pose_utils.multiply(registration_matrix, camera_to_world_tensor).tolist()
                 self.vis[f"sceneState/cameras/{idx:06d}_original"].write(camera_json)
 
         # draw the scene box (i.e., the bounding box)
@@ -408,7 +409,7 @@ class ViewerState:
             #                                     torch.tensor([[0, 0, 0, 1]], dtype=torch.float32)), 0)
             # camera_json["camera_to_world"] = (camera_opt_transform_matrix @ camera_to_world_tensor)[:3, :].tolist()
             camera_to_world_tensor = torch.from_numpy(np.array(camera_json["camera_to_world"])).unsqueeze(0).to(device=camera_opt_to_camera.device, dtype=torch.float32)
-            camera_json["camera_to_world"] = pose_utils.multiply(camera_to_world_tensor, camera_opt_to_camera).squeeze().tolist()
+            camera_json["camera_to_world"] = pose_utils.multiply(camera_opt_to_camera, camera_to_world_tensor).squeeze().tolist()
             # print(camera_json["camera_to_world"])
             if pre_train:
                 self.vis[f"sceneState/cameras/{idx:06d}_step_pre_train{step:06d}"].write(camera_json)

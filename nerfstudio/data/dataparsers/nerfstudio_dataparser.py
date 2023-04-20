@@ -271,13 +271,13 @@ class Nerfstudio(DataParser):
             max_angle_factor = self.config.max_angle_factor
             max_translation = self.config.max_translation
 
-            anglex = np.random.uniform() * np.pi / max_angle_factor
-            angley = np.random.uniform() * np.pi / max_angle_factor
-            anglez = np.random.uniform() * np.pi / max_angle_factor
+            anglex = np.random.uniform() * np.pi * max_angle_factor
+            angley = np.random.uniform() * np.pi * max_angle_factor
+            anglez = np.random.uniform() * np.pi * max_angle_factor
 
 
-            unregistration_euler = torch.rad2deg(torch.tensor([anglex, angley, anglez]))
-            r = Rotation.from_euler('xyz', unregistration_euler, degrees=True)
+            registration_euler = torch.rad2deg(torch.tensor([anglex, angley, anglez]))
+            r = Rotation.from_euler('xyz', registration_euler, degrees=True)
             rotation_ab = r.as_matrix()
 
             # cosx = np.cos(anglex)
@@ -300,15 +300,16 @@ class Nerfstudio(DataParser):
             translation_ab = np.array([np.random.uniform(-max_translation, max_translation), np.random.uniform(-max_translation, max_translation),
                                        np.random.uniform(-max_translation, max_translation)])
 
-            unregistration_matrix = np.zeros((4, 4), dtype=np.float32)
-            unregistration_matrix[:3, :3] = rotation_ab
-            unregistration_matrix[3, 3] = 1
-            unregistration_matrix[:3, -1] = translation_ab.T
-            CONSOLE.log(f"[yellow] unregistration_matrix is {unregistration_matrix}")
-            unregistration_matrix = torch.from_numpy(unregistration_matrix)
+            registration_matrix = np.zeros((4, 4), dtype=np.float32)
+            registration_matrix[:3, :3] = rotation_ab
+            registration_matrix[3, 3] = 1
+            registration_matrix[:3, -1] = translation_ab.T
+            CONSOLE.log(f"[yellow] registration_matrix is {registration_matrix}")
+            registration_matrix = torch.from_numpy(registration_matrix)
             # unregistration_matrix = torch.inverse(registration_matrix)
+            unregistration_matrix = pose_utils.inverse(registration_matrix)
 
-            poses = pose_utils.multiply(poses, unregistration_matrix)
+            poses = pose_utils.multiply(unregistration_matrix, poses)
             # poses = unregistration_matrix[:3, :] @ poses
 
         # Choose image_filenames and poses based on split, but after auto orient and scaling the poses.
@@ -385,9 +386,9 @@ class Nerfstudio(DataParser):
                 "depth_filenames": depth_filenames if len(depth_filenames) > 0 else None,
                 "depth_unit_scale_factor": self.config.depth_unit_scale_factor,
                 # "registration_matrix": registration_matrix if self.config.registration else None,
-                "unregistration_matrix": unregistration_matrix if self.config.registration else None,
-                "unregistration_rot_euler": unregistration_euler if self.config.registration else None,
-                "unregistration_translation": torch.from_numpy(translation_ab) if self.config.registration else None
+                "registration_matrix": registration_matrix if self.config.registration else None,
+                "registration_rot_euler": registration_euler if self.config.registration else None,
+                "registration_translation": torch.from_numpy(translation_ab) if self.config.registration else None
             },
         )
         return dataparser_outputs
