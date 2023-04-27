@@ -98,6 +98,7 @@ class PixelSampler:  # pylint: disable=too-few-public-methods
         c, y, x = (i.flatten() for i in torch.split(indices, 1, dim=-1))
         # print(batch["image"].device)
         # print(batch["mask"].device)
+        c, y, x = c.cpu(), y.cpu(), x.cpu()
         collated_batch = {
             key: value[c, y, x] for key, value in batch.items() if key != "image_idx" and value is not None
         }

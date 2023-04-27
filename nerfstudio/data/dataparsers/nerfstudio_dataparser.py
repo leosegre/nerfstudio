@@ -53,7 +53,7 @@ class NerfstudioDataParserConfig(DataParserConfig):
 
     _target: Type = field(default_factory=lambda: Nerfstudio)
     """target class to instantiate"""
-    data: Path = Path("data/nerfstudio/poster")
+    data: Path = Path()
     """Directory or explicit json file path specifying location of data."""
     scale_factor: float = 1.0
     """How much to scale the camera origins by."""
@@ -90,6 +90,8 @@ class Nerfstudio(DataParser):
 
     def _generate_dataparser_outputs(self, split="train"):
         # pylint: disable=too-many-statements
+
+        assert self.config.data.exists(), f"Data directory {self.config.data} does not exist."
 
         if self.config.blender:
             meta = load_from_json(self.config.data / f"transforms_{split}.json")
