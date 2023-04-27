@@ -365,38 +365,6 @@ class NerfactoModel(Model):
         ssim = self.ssim(torch_image, torch_rgb)
         lpips = self.lpips(torch_image, torch_rgb)
 
-        # image_grayscale = image.mean(axis=1)
-        # rgb_grayscale = rgb.mean(axis=1)
-        # image_hist = torch.histc(image_grayscale, 2, 0, 1)
-        # rgb_hist = torch.histc(rgb_grayscale, 2, 0, 1)
-
-
-
-        # num_bins = 10
-        # image_hist = torch.zeros((image.shape[0], 3*num_bins))
-        # rgb_hist = torch.zeros((rgb.shape[0], 3*num_bins))
-        # print(rgb[rgb < 0.99])
-        # for i in range(image.shape[0]):
-        #     image_hist[i] = torch.concat((torch.histc(image[i][0], num_bins, 0, 1),
-        #                               torch.histc(image[i][1], num_bins, 0, 1),
-        #                               torch.histc(image[i][2], num_bins, 0, 1)))
-        #     image_hist[i] /= image_hist[i].sum()
-        #     rgb_hist[i] = torch.concat((torch.histc(rgb[i][0], num_bins, 0, 1),
-        #                             torch.histc(rgb[i][1], num_bins, 0, 1),
-        #                             torch.histc(rgb[i][2], num_bins, 0, 1)))
-        #     rgb_hist[i] /= rgb_hist[i].sum()
-            # save_image(rgb[i], f"/home/leo/nerfstudio_reg/nerfstudio/check/image_{random.randint(0, 1000)}.png")
-        # print(rgb_hist)
-
-        # print(image_hist.to(dtype=int))
-        # print(rgb_hist)
-        # loss = self.rgb_loss(image_hist, rgb_hist)
-        # loss = (image_hist - rgb_hist).abs().sum()
-
-        # image_gauss = gaussian_filter(image.cpu().numpy(), sigma=(1, 1, 5, 5))
-        # rgb_gauss = gaussian_filter(rgb.cpu().numpy(), sigma=(1, 1, 5, 5))
-        # loss = self.rgb_loss(torch.from_numpy(image_gauss), torch.from_numpy(rgb_gauss))
-
         image_numpy = image.cpu().numpy()
         rgb_numpy = rgb.cpu().numpy()
 
@@ -404,6 +372,18 @@ class NerfactoModel(Model):
         gray_image = cv.normalize(gray_image, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
         gray_rgb = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2GRAY)
         gray_rgb = cv.normalize(gray_rgb, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+
+        # # Calculate Histogram
+        # num_bins = int(256 / 25)
+        # image_hist = cv.calcHist([gray_image], [0], None, [num_bins], [0, 256])
+        # image_hist /= image_hist.sum()
+        # rgb_hist = cv.calcHist([gray_rgb], [0], None, [num_bins], [0, 256])
+        # rgb_hist /= rgb_hist.sum()
+        # hist_loss = (np.abs(image_hist - rgb_hist)).sum()
+        # lamda_hist = 5
+        # hist_loss = lamda_hist * hist_loss
+
+        # Calculate Homography
         sift = cv.SIFT_create()
         kp_image, des_image = sift.detectAndCompute(gray_image, None)
         kp_rgb, des_rgb = sift.detectAndCompute(gray_rgb, None)
@@ -426,6 +406,8 @@ class NerfactoModel(Model):
             src_pts = np.float32([kp_image[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
             dst_pts = np.float32([kp_rgb[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
             M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 5.0)
+            # M, mask = cv.findFundamentalMat(src_pts, dst_pts, cv.RANSAC, 5.0)
+            # print(M.shape[0])
             matchesMask = mask.ravel().tolist()
             h, w = gray_image.shape
             pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
@@ -464,12 +446,24 @@ class NerfactoModel(Model):
             phi = np.arctan2(b, a)
 
             lamda_rot = 1
-            loss = np.sqrt((1-p)**2) + np.sqrt((1-r)**2) + np.abs(q) + np.abs(c/w) + np.abs(f/h) + lamda_rot*np.abs(phi)
+            p_loss = np.sqrt((1-p)**2)
+            r_loss = np.sqrt((1-r)**2)
+            q_loss = np.abs(q)
+            c_loss = np.abs(c/w)
+            f_loss = np.abs(f/h)
+            phi_loss = lamda_rot*np.abs(phi)
 
-            cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/image_loss_{loss:.3f}_p_{1-p:.3f}_r_{1-r:.3f}_q_{q:.3f}"
-                       f"_c_{c:.3f}_f_{f:.3f}_phi_{np.abs(phi):.3f}.png", img3)
+
+            loss = p_loss + r_loss + q_loss + c_loss + f_loss + phi_loss
+
+            cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/image_loss_{loss:.3f}"
+                       f"_p_{p_loss:.3f}_r_{r_loss:.3f}_q_{q_loss:.3f}"
+                       f"_c_{c_loss:.3f}_f_{f_loss:.3f}_phi_{phi_loss:.3f}.png", img3)
 
 
+
+            # loss = 0
+            # print(M)
             # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/image_loss_{loss:.0f}.png", img3)
 
         # all of these metrics will be logged as scalars
