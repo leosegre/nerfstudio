@@ -249,55 +249,8 @@ class Trainer:
         self._init_viewer_state()
         with TimeWriter(writer, EventName.TOTAL_TRAIN_TIME):
 
-            # if self.pipeline.config.registration:
-            #     self.pipeline.train()
-            #     best_6dof = self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :]
-            #     metrics_dict, images_dict = self.pipeline.get_train_image_metrics_and_images(step=0)
-            #     best_loss = metrics_dict["loss"]
-            #     self._update_register_cameras(step=0, pre_train=True)
-            #     for step in tqdm(range(self._start_step, self._start_step + 20)):
-            #         # training callbacks before the training iteration
-            #         for callback in self.callbacks:
-            #             callback.run_callback_at_location(
-            #                 step, location=TrainingCallbackLocation.BEFORE_TRAIN_ITERATION
-            #             )
-            #
-            #         min_rand_rot = -5
-            #         max_rand_rot = 5
-            #         min_rand_trans = -1
-            #         max_rand_trans = 1
-            #         random_6dof_rot = (min_rand_rot - max_rand_rot) * torch.rand(3).to(device=self.device) + max_rand_rot
-            #         random_6dof_trans = (min_rand_trans - max_rand_trans) * torch.rand(3).to(device=self.device) + max_rand_trans
-            #         random_6dof = torch.concat((random_6dof_trans, random_6dof_rot))
-            #         with torch.no_grad():
-            #             self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = random_6dof
-            #             # import ipdb; ipdb.set_trace()
-            #         metrics_dict, images_dict = self.pipeline.get_train_image_metrics_and_images(step=0)
-            #         # import ipdb; ipdb.set_trace()
-            #         if metrics_dict["loss"] < best_loss:
-            #             best_loss = metrics_dict["loss"]
-            #             best_6dof = random_6dof
-            #             print(best_loss)
-            #             print(best_6dof)
-            #         self._update_register_cameras(step=step, pre_train=True)
-            #
-            #         # training callbacks after the training iteration
-            #         for callback in self.callbacks:
-            #             callback.run_callback_at_location(step, location=TrainingCallbackLocation.AFTER_TRAIN_ITERATION)
-            #         self._update_viewer_state(step)
-            #
-            #     with torch.no_grad():
-            #         self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = best_6dof
 
-
-            # print(self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :])
-
-            num_pretrain = self._start_step + 30
-            # best_6dof = self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :]
-            # with torch.no_grad():
-            #     metrics_dict, images_dict = self.pipeline.get_train_image_metrics_and_images(self._start_step)
-            #     best_loss = metrics_dict["loss"]
-            #     self._update_register_cameras(self._start_step, pre_train=True)
+            num_pretrain = self._start_step + 10
 
             num_iterations = self.config.max_num_iterations
             step = 0
@@ -314,59 +267,40 @@ class Trainer:
                                 step, location=TrainingCallbackLocation.BEFORE_TRAIN_ITERATION
                             )
 
-                    if self.pipeline.config.registration:
-                        if step == self._start_step:
-                            # loss, loss_dict, metrics_dict = self.train_iteration(step)
-                            metrics_dict = self.pipeline.get_average_train_image_metrics(step)
-                            # best_loss = loss_dict["rgb_loss"]
-                            best_loss = metrics_dict["loss"]
-                            best_6dof = self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :]
-                        elif step < num_pretrain:
-                            min_rand_rot = 0
-                            max_rand_rot = 0.5*torch.pi
-                            min_rand_trans = -0.5
-                            max_rand_trans = 0.5
-                            random_6dof_rot = (min_rand_rot - max_rand_rot) * torch.rand(3).to(
-                                device=self.device) + max_rand_rot
-                            random_6dof_trans = (min_rand_trans - max_rand_trans) * torch.rand(3).to(
-                                device=self.device) + max_rand_trans
-                            random_6dof = torch.concat((random_6dof_trans, random_6dof_rot))
-                            with torch.no_grad():
-                                self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = random_6dof
-                            metrics_dict = self.pipeline.get_average_train_image_metrics(step)
-                            # loss, loss_dict, metrics_dict = self.train_iteration(step)
-                            # import ipdb; ipdb.set_trace()
-                            if metrics_dict["loss"] < best_loss:
+                        if self.pipeline.config.registration:
+                            if step == self._start_step:
+                                # loss, loss_dict, metrics_dict = self.train_iteration(step)
+                                metrics_dict = self.pipeline.get_average_train_image_metrics(step)
                                 # best_loss = loss_dict["rgb_loss"]
                                 best_loss = metrics_dict["loss"]
-                                best_6dof = random_6dof
-                                print("step:", step, ", loss:", best_loss)
-                                print(best_6dof)
-                                self._update_register_cameras(step=step, pre_train=True)
-                        elif step == num_pretrain:
-                            with torch.no_grad():
-                                self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = best_6dof
+                                best_6dof = self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :]
+                            elif step < num_pretrain:
+                                min_rand_rot = 0
+                                max_rand_rot = 0.5*torch.pi
+                                min_rand_trans = -0.5
+                                max_rand_trans = 0.5
+                                random_6dof_rot = (min_rand_rot - max_rand_rot) * torch.rand(3).to(
+                                    device=self.device) + max_rand_rot
+                                random_6dof_trans = (min_rand_trans - max_rand_trans) * torch.rand(3).to(
+                                    device=self.device) + max_rand_trans
+                                random_6dof = torch.concat((random_6dof_trans, random_6dof_rot))
+                                with torch.no_grad():
+                                    self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = random_6dof
+                                metrics_dict = self.pipeline.get_average_train_image_metrics(step)
+                                if metrics_dict["loss"] < best_loss:
+                                    best_loss = metrics_dict["loss"]
+                                    best_6dof = random_6dof
+                                    print("step:", step, ", loss:", best_loss)
+                                    print(best_6dof)
+                                    self._update_register_cameras(step=step, pre_train=True)
+                            elif step == num_pretrain:
+                                with torch.no_grad():
+                                    self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = best_6dof
+                            else:
+                                loss, loss_dict, metrics_dict = self.train_iteration(step)
                         else:
+                            # time the forward pass
                             loss, loss_dict, metrics_dict = self.train_iteration(step)
-                    else:
-                        # time the forward pass
-                        loss, loss_dict, metrics_dict = self.train_iteration(step)
-
-                    # # Add noise
-                    # if self.pipeline.config.registration:
-                    #     with torch.no_grad():
-                    #         min_rand_rot = 0
-                    #         max_rand_rot = 0.03
-                    #         min_rand_trans = -0.01
-                    #         max_rand_trans = 0.01
-                    #         random_6dof_rot = (min_rand_rot - max_rand_rot) * torch.rand(3).to(
-                    #             device=self.device) + max_rand_rot
-                    #         random_6dof_trans = (min_rand_trans - max_rand_trans) * torch.rand(3).to(
-                    #             device=self.device) + max_rand_trans
-                    #         # print(loss)
-                    #         random_6dof = torch.concat((random_6dof_trans, random_6dof_rot)) * loss
-                    #
-                    #         self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] += random_6dof
 
                         # training callbacks after the training iteration
                         for callback in self.callbacks:
@@ -446,7 +380,7 @@ class Trainer:
         assert self.viewer_state and self.pipeline.datamanager.train_dataset
         self.viewer_state.init_scene(
             dataset=self.pipeline.datamanager.train_dataset,
-            start_train=self.config.viewer.start_train,
+            # start_train=self.config.viewer.start_train,
             registration=self.pipeline.config.registration,
             train_state="training",
         )
@@ -462,7 +396,7 @@ class Trainer:
         assert self.viewer_state is not None
         num_rays_per_batch: int = self.pipeline.datamanager.get_train_rays_per_batch()
         try:
-            self.viewer_state.update_scene(self, step, self.pipeline.model, num_rays_per_batch)
+            self.viewer_state.update_scene(step, num_rays_per_batch)
         except RuntimeError:
             time.sleep(0.03)  # sleep to allow buffer to reset
             assert self.viewer_state.vis is not None

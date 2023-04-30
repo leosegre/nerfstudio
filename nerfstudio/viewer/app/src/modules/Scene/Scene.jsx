@@ -221,6 +221,7 @@ export function get_scene_tree() {
   const axes = new THREE.AxesHelper(5);
   sceneTree.set_object_from_path(['Axes'], axes);
 
+
   // Grid
   const grid = new THREE.GridHelper(20, 20);
   grid.rotateX(Math.PI / 2); // rotated to xy plane

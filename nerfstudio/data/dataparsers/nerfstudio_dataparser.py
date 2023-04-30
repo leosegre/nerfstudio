@@ -270,6 +270,7 @@ class Nerfstudio(DataParser):
         poses[:, :3, 3] *= scale_factor
 
         if self.config.registration:
+            print("check")
             max_angle_factor = self.config.max_angle_factor
             max_translation = self.config.max_translation
 
