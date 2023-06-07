@@ -35,6 +35,7 @@ from nerfstudio.field_components.field_heads import (
     FieldHead,
     FieldHeadNames,
     PredNormalsFieldHead,
+    DirectionsFieldHead,
     RGBFieldHead,
     SemanticFieldHead,
     TransientDensityFieldHead,
@@ -102,6 +103,7 @@ class TCNNNerfactoField(Field):
         num_semantic_classes: int = 100,
         pass_semantic_gradients: bool = False,
         use_pred_normals: bool = False,
+        use_pred_directions: bool = False,
         use_average_appearance_embedding: bool = False,
         spatial_distortion: Optional[SpatialDistortion] = None,
     ) -> None:
@@ -122,6 +124,7 @@ class TCNNNerfactoField(Field):
         self.use_transient_embedding = use_transient_embedding
         self.use_semantics = use_semantics
         self.use_pred_normals = use_pred_normals
+        self.use_pred_directions = use_pred_directions
         self.pass_semantic_gradients = pass_semantic_gradients
 
         base_res: int = 16
@@ -211,6 +214,21 @@ class TCNNNerfactoField(Field):
                 },
             )
             self.field_head_pred_normals = PredNormalsFieldHead(in_dim=self.mlp_pred_normals.n_output_dims)
+
+        # predicted directions
+        if self.use_pred_directions:
+            self.mlp_pred_directions = tcnn.Network(
+                n_input_dims=self.direction_encoding.n_output_dims + + self.geo_feat_dim + self.position_encoding.n_output_dims,
+                n_output_dims=hidden_dim_transient,
+                network_config={
+                    "otype": "FullyFusedMLP",
+                    "activation": "Tanh",
+                    "output_activation": "None",
+                    "n_neurons": 64,
+                    "n_hidden_layers": 3,
+                },
+            )
+            self.field_head_pred_directions = DirectionsFieldHead(in_dim=self.mlp_pred_directions.n_output_dims)
 
         self.mlp_head = tcnn.Network(
             n_input_dims=self.direction_encoding.n_output_dims + self.geo_feat_dim,
@@ -310,6 +328,16 @@ class TCNNNerfactoField(Field):
 
             x = self.mlp_pred_normals(pred_normals_inp).view(*outputs_shape, -1).to(directions)
             outputs[FieldHeadNames.PRED_NORMALS] = self.field_head_pred_normals(x)
+
+        # predicted directions
+        if self.use_pred_directions:
+            positions = ray_samples.frustums.get_positions()
+
+            positions_flat = self.position_encoding(positions.view(-1, 3))
+            pred_directions_inp = torch.cat([d, positions_flat, density_embedding.view(-1, self.geo_feat_dim)], dim=-1)
+
+            x = self.mlp_pred_directions(pred_directions_inp).view(*outputs_shape, -1).to(directions)
+            outputs[FieldHeadNames.DIRECTIONS] = self.field_head_pred_directions(x)
 
         h = torch.cat(
             [

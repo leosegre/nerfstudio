@@ -233,6 +233,7 @@ class Cameras(TensorDataclass):
             h_w: height or width argument from __init__()
             c_x_y: cx or cy for when h_w == None
         """
+
         if isinstance(h_w, int):
             h_w = torch.as_tensor([h_w]).to(torch.int64).to(self.device)
         elif isinstance(h_w, torch.Tensor):
@@ -299,6 +300,7 @@ class Cameras(TensorDataclass):
         Returns:
             Grid of image coordinates.
         """
+
         if index is None:
             image_height = torch.max(self.image_height.view(-1))
             image_width = torch.max(self.image_width.view(-1))

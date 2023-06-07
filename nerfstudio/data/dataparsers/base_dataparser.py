@@ -85,6 +85,11 @@ class DataparserOutputs:
             "transform": self.dataparser_transform.tolist(),
             "scale": float(self.dataparser_scale),
         }
+        metadata_list = self.metadata
+        for key in metadata_list.keys():
+            if torch.is_tensor(metadata_list[key]):
+                metadata_list[key] = metadata_list[key].tolist()
+        data.update(self.metadata)
         if not path.parent.exists():
             path.parent.mkdir(parents=True)
         with open(path, "w", encoding="UTF-8") as file:

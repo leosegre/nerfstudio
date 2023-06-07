@@ -76,6 +76,8 @@ class TrainerConfig(ExperimentConfig):
     """Number of steps between eval all images."""
     max_num_iterations: int = 1000000
     """Maximum number of iterations to run."""
+    pretrain_iters: int = 0
+    """number of pretrain iterations for registration."""
     mixed_precision: bool = False
     """Whether or not to use mixed precision for training."""
     use_grad_scaler: bool = False
@@ -91,6 +93,9 @@ class TrainerConfig(ExperimentConfig):
     """Path to config YAML file."""
     log_gradients: bool = False
     """Optionally log gradients during training"""
+    start_step: Optional[int] = None
+    """Optionally specify start step to load from."""
+
 
 
 class Trainer:
@@ -139,6 +144,7 @@ class Trainer:
         CONSOLE.log(f"Saving checkpoints to: {self.checkpoint_dir}")
 
         self.viewer_state = None
+        self.pretrain_iters = config.pretrain_iters
 
     def setup(self, test_mode: Literal["test", "val", "inference"] = "val") -> None:
         """Setup the Trainer by calling other setup functions.
@@ -250,10 +256,11 @@ class Trainer:
         with TimeWriter(writer, EventName.TOTAL_TRAIN_TIME):
 
 
-            num_pretrain = self._start_step + 10
+            num_pretrain = self._start_step + self.pretrain_iters
 
             num_iterations = self.config.max_num_iterations
             step = 0
+            pretrain_flag = True
             for step in range(self._start_step, self._start_step + num_iterations):
                 while self.training_state == "paused":
                     time.sleep(0.01)
@@ -268,34 +275,48 @@ class Trainer:
                             )
 
                         if self.pipeline.config.registration:
-                            if step == self._start_step:
-                                # loss, loss_dict, metrics_dict = self.train_iteration(step)
-                                metrics_dict = self.pipeline.get_average_train_image_metrics(step)
-                                # best_loss = loss_dict["rgb_loss"]
-                                best_loss = metrics_dict["loss"]
-                                best_6dof = self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :]
-                            elif step < num_pretrain:
-                                min_rand_rot = 0
-                                max_rand_rot = 0.5*torch.pi
-                                min_rand_trans = -0.5
-                                max_rand_trans = 0.5
-                                random_6dof_rot = (min_rand_rot - max_rand_rot) * torch.rand(3).to(
-                                    device=self.device) + max_rand_rot
-                                random_6dof_trans = (min_rand_trans - max_rand_trans) * torch.rand(3).to(
-                                    device=self.device) + max_rand_trans
-                                random_6dof = torch.concat((random_6dof_trans, random_6dof_rot))
-                                with torch.no_grad():
-                                    self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = random_6dof
-                                metrics_dict = self.pipeline.get_average_train_image_metrics(step)
-                                if metrics_dict["loss"] < best_loss:
+                            if pretrain_flag:
+                                if step == self._start_step:
+                                    metrics_dict = self.pipeline.get_average_train_image_metrics(step)
                                     best_loss = metrics_dict["loss"]
-                                    best_6dof = random_6dof
-                                    print("step:", step, ", loss:", best_loss)
-                                    print(best_6dof)
-                                    self._update_register_cameras(step=step, pre_train=True)
-                            elif step == num_pretrain:
-                                with torch.no_grad():
-                                    self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = best_6dof
+                                    best_6dof = self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :]
+                                    if self.pretrain_iters == 0:
+                                        pretrain_flag = False
+                                        step = self._start_step
+                                elif step < num_pretrain:
+                                    min_rand_rot = 0
+                                    max_rand_rot = 0.25*torch.pi
+                                    min_rand_trans = -0.25
+                                    max_rand_trans = 0.25
+                                    # random_6dof_rot = torch.deg2rad(torch.tensor((-33.70861053466797, 85.56428527832031, 65.87945556640625-15)).to(
+                                    #     device=self.device))
+                                    # random_6dof_trans = torch.tensor((0.0986584841970366, -0.3439813595575635, -0.34400547966379735)).to(
+                                    #     device=self.device)
+                                    random_6dof_rot = (min_rand_rot - max_rand_rot) * torch.rand(3).to(
+                                        device=self.device) + max_rand_rot
+                                    random_6dof_trans = (min_rand_trans - max_rand_trans) * torch.rand(3).to(
+                                        device=self.device) + max_rand_trans
+                                    random_6dof = torch.concat((random_6dof_trans, random_6dof_rot))
+                                    with torch.no_grad():
+                                        self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = random_6dof
+                                    metrics_dict = self.pipeline.get_average_train_image_metrics(step)
+                                    # if step == 5:
+                                    #     best_loss = metrics_dict["loss"]
+                                    #     best_6dof = random_6dof
+                                    #     print("step:", step, ", loss:", best_loss)
+                                    #     print(best_6dof)
+                                    #     self._update_register_cameras(step=step, pre_train=True)
+                                    if metrics_dict["loss"] < best_loss:
+                                        best_loss = metrics_dict["loss"]
+                                        best_6dof = random_6dof
+                                        print("step:", step, ", loss:", best_loss)
+                                        print(best_6dof)
+                                        self._update_register_cameras(step=step, pre_train=True)
+                                elif step == num_pretrain:
+                                    with torch.no_grad():
+                                        self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = best_6dof
+                                    pretrain_flag = False
+                                    step = self._start_step
                             else:
                                 loss, loss_dict, metrics_dict = self.train_iteration(step)
                         else:
@@ -320,6 +341,7 @@ class Trainer:
                 self._update_viewer_state(step)
                 if self.pipeline.config.registration and (step % 100) == 0:
                     self._update_register_cameras(step)
+                    # self.pipeline.get_average_train_image_metrics(step)
 
                 # a batch of train rays
                 if (not self.pipeline.config.registration) or (self.pipeline.config.registration and step > num_pretrain):
@@ -467,7 +489,10 @@ class Trainer:
             load_path: Path = load_dir / f"step-{load_step:09d}.ckpt"
             assert load_path.exists(), f"Checkpoint {load_path} does not exist"
             loaded_state = torch.load(load_path, map_location="cpu")
-            self._start_step = loaded_state["step"] + 1
+            if self.config.start_step is not None:
+                self._start_step = self.config.start_step
+            else:
+                self._start_step = loaded_state["step"] + 1
             # load the checkpoints for pipeline, optimizers, and gradient scalar
             self.pipeline.load_pipeline(loaded_state["pipeline"], loaded_state["step"])
             self.optimizers.load_optimizers(loaded_state["optimizers"])
@@ -534,6 +559,7 @@ class Trainer:
         with torch.autocast(device_type=cpu_or_cuda_str, enabled=self.mixed_precision):
             _, loss_dict, metrics_dict = self.pipeline.get_train_loss_dict(step=step)
             loss = functools.reduce(torch.add, loss_dict.values())
+
         self.grad_scaler.scale(loss).backward()  # type: ignore
         self.optimizers.optimizer_scaler_step_all(self.grad_scaler)
 

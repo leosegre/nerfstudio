@@ -91,7 +91,7 @@ class Field(nn.Module):
             retain_graph=True,
         )[0]
 
-        normals = -torch.nn.functional.normalize(normals, dim=-1)
+        normals = torch.nn.functional.normalize(normals, dim=-1)
 
         return normals
 
@@ -124,6 +124,10 @@ class Field(nn.Module):
         if compute_normals:
             with torch.enable_grad():
                 normals = self.get_normals()
+                # print("normals", normals.view(-1, 1, 3).shape)
+                # print("dirs", ray_samples.frustums.directions.clone().view(-1, 3, 1).shape)
+                # normals_dot_dirs = torch.sign(torch.bmm(normals.view(-1, 1, 3), ray_samples.frustums.directions.clone().view(-1, 3, 1))).view(normals.shape[0], -1, 1)
+                # normals = normals * normals_dot_dirs
             field_outputs[FieldHeadNames.NORMALS] = normals  # type: ignore
         return field_outputs
 

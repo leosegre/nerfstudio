@@ -439,6 +439,7 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
         return InputDataset(
             dataparser_outputs=self.dataparser.get_dataparser_outputs(split=self.test_split),
             scale_factor=self.config.camera_res_scale_factor,
+            registration=self.dataparser.config.registration,
         )
 
     def _get_pixel_sampler(  # pylint: disable=no-self-use
@@ -473,7 +474,7 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
         self.iter_train_image_dataloader = iter(self.train_image_dataloader)
         self.train_pixel_sampler = self._get_pixel_sampler(self.train_dataset, self.config.train_num_rays_per_batch)
         self.train_camera_optimizer = self.config.camera_optimizer.setup(
-            num_cameras=self.train_dataset.cameras.size, device=self.device, registration=self.dataparser.config.registration
+            num_cameras=self.train_dataset.cameras.size, device=self.device, registration=self.dataparser.config.optimize_camera_registration
         )
         self.train_ray_generator = RayGenerator(
             self.train_dataset.cameras.to(self.device),
@@ -536,6 +537,9 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
         image_batch = next(self.iter_train_image_dataloader)
         assert self.train_pixel_sampler is not None
         batch = self.train_pixel_sampler.sample(image_batch)
+        # import ipdb;
+        # ipdb.set_trace()
+
         ray_indices = batch["indices"]
         ray_bundle = self.train_ray_generator(ray_indices)
         return ray_bundle, batch

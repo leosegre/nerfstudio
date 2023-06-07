@@ -45,6 +45,7 @@ class RayGenerator(nn.Module):
         Args:
             ray_indices: Contains camera, row, and col indices for target rays.
         """
+
         c = ray_indices[:, 0]  # camera indices
         y = ray_indices[:, 1]  # row indices
         x = ray_indices[:, 2]  # col indices

@@ -73,12 +73,19 @@ class NerfstudioDataParserConfig(DataParserConfig):
     """Scales the depth values to meters. Default value is 0.001 for a millimeter to meter conversion."""
     registration: bool = False
     """Whether to apply registration transform."""
+    optimize_camera_registration: bool = False
+    """Whether to apply registration transform."""
+    load_registration: bool = False
+    """Whether to load registration data from json."""
     max_angle_factor: float = 12
     """Max Angle to rotate for registration test (for example - 4 -> pi/4)."""
     max_translation: float = 0.2
     """Max translation for registration test."""
     blender: bool = False
     """dataset from blender."""
+    registration_data: Path = None
+    """Directory or explicit json file path specifying location of registration data."""
+
 
 
 @dataclass
@@ -86,12 +93,15 @@ class Nerfstudio(DataParser):
     """Nerfstudio DatasetParser"""
 
     config: NerfstudioDataParserConfig
-    downscale_factor: Optional[int] = 1
+    downscale_factor: Optional[int] = None
 
     def _generate_dataparser_outputs(self, split="train"):
         # pylint: disable=too-many-statements
 
         assert self.config.data.exists(), f"Data directory {self.config.data} does not exist."
+        if self.config.registration_data is not None:
+            assert self.config.registration_data.exists(), f"Data directory {self.config.registration_data} does not exist."
+            registration_data = load_from_json(self.config.registration_data / f"dataparser_transforms.json")
 
         if self.config.blender:
             meta = load_from_json(self.config.data / f"transforms_{split}.json")
@@ -113,12 +123,14 @@ class Nerfstudio(DataParser):
             image_0_filename = meta["frames"][0]["file_path"]
             image_0_filename = self.config.data / Path(image_0_filename.replace("./", "") + ".png")
             img_0 = imageio.imread(image_0_filename)
-            height_fixed, width_fixed = img_0.shape[:2]
+            meta["h"], meta["w"] = img_0.shape[:2]
             camera_angle_x = float(meta["camera_angle_x"])
-            fx_fixed = 0.5 * width_fixed / np.tan(0.5 * camera_angle_x)
-            fy_fixed = fx_fixed
-            cx_fixed = width_fixed / 2.0
-            cy_fixed = height_fixed / 2.0
+            meta["fl_x"] = 0.5 * meta["w"] / np.tan(0.5 * camera_angle_x)
+            meta["fl_y"] = meta["fl_x"]
+            meta["cx"] = meta["w"] / 2.0
+            meta["cy"] = meta["h"] / 2.0
+            height_fixed, width_fixed, fx_fixed, fy_fixed, cx_fixed, cy_fixed = True, True, True, True, True, True
+
             # camera_to_world = torch.from_numpy(poses[:, :3])  # camera to world transform
         else:
             fx_fixed = "fl_x" in meta
@@ -255,65 +267,63 @@ class Nerfstudio(DataParser):
             orientation_method = self.config.orientation_method
 
         poses = torch.from_numpy(np.array(poses).astype(np.float32))
-        poses, transform_matrix = camera_utils.auto_orient_and_center_poses(
-            poses,
-            method=orientation_method,
-            center_method=self.config.center_method,
-        )
+        if self.config.load_registration:
+            transform_matrix = torch.tensor(meta["transform"])
+        elif self.config.registration_data is not None:
+            transform_matrix = torch.tensor(registration_data["transform"])
+            poses = transform_matrix @ poses
+        else:
+            poses, transform_matrix = camera_utils.auto_orient_and_center_poses(
+                poses,
+                method=orientation_method,
+                center_method=self.config.center_method,
+            )
 
         # Scale poses
         scale_factor = 1.0
         if self.config.auto_scale_poses:
             scale_factor /= float(torch.max(torch.abs(poses[:, :3, 3])))
+        elif self.config.registration_data is not None:
+            scale_factor = torch.tensor(registration_data["scale"])
         scale_factor *= self.config.scale_factor
+        # if self.config.load_registration:
+        #     scale_factor *= torch.tensor(meta["scale"])
+        if self.config.load_registration:
+            scale_factor = 1.0
 
         poses[:, :3, 3] *= scale_factor
 
         if self.config.registration:
-            print("check")
-            max_angle_factor = self.config.max_angle_factor
-            max_translation = self.config.max_translation
+            if self.config.load_registration:
+                registration_matrix = torch.tensor(meta["registration_matrix"])
+                registration_rot_euler = torch.tensor(meta["registration_rot_euler"])
+                registration_translation = torch.tensor(meta["registration_translation"])
+            else:
+                max_angle_factor = self.config.max_angle_factor
+                max_translation = self.config.max_translation
 
-            anglex = np.random.uniform() * np.pi * max_angle_factor
-            angley = np.random.uniform() * np.pi * max_angle_factor
-            anglez = np.random.uniform() * np.pi * max_angle_factor
+                anglex = np.random.uniform() * np.pi * max_angle_factor
+                angley = np.random.uniform() * np.pi * max_angle_factor
+                anglez = np.random.uniform() * np.pi * max_angle_factor
 
 
-            registration_euler = torch.rad2deg(torch.tensor([anglex, angley, anglez]))
-            r = Rotation.from_euler('xyz', registration_euler, degrees=True)
-            rotation_ab = r.as_matrix()
+                registration_rot_euler = torch.rad2deg(torch.tensor([anglex, angley, anglez]))
+                r = Rotation.from_euler('xyz', registration_rot_euler, degrees=True)
+                rotation_ab = r.as_matrix()
 
-            # cosx = np.cos(anglex)
-            # cosy = np.cos(angley)
-            # cosz = np.cos(anglez)
-            # sinx = np.sin(anglex)
-            # siny = np.sin(angley)
-            # sinz = np.sin(anglez)
-            # Rx = np.array([[1, 0, 0],
-            #                [0, cosx, -sinx],
-            #                [0, sinx, cosx]])
-            # Ry = np.array([[cosy, 0, siny],
-            #                [0, 1, 0],
-            #                [-siny, 0, cosy]])
-            # Rz = np.array([[cosz, -sinz, 0],
-            #                [sinz, cosz, 0],
-            #                [0, 0, 1]])
-            # rotation_ab = Rx.dot(Ry).dot(Rz)
+                translation_ab = np.array([np.random.uniform(-max_translation, max_translation), np.random.uniform(-max_translation, max_translation),
+                                           np.random.uniform(-max_translation, max_translation)])
 
-            translation_ab = np.array([np.random.uniform(-max_translation, max_translation), np.random.uniform(-max_translation, max_translation),
-                                       np.random.uniform(-max_translation, max_translation)])
+                registration_matrix = np.zeros((4, 4), dtype=np.float32)
+                registration_matrix[:3, :3] = rotation_ab
+                registration_matrix[3, 3] = 1
+                registration_matrix[:3, -1] = translation_ab.T
+                registration_translation = torch.from_numpy(translation_ab)
+                CONSOLE.log(f"[yellow] registration_matrix is {registration_matrix}")
+                registration_matrix = torch.from_numpy(registration_matrix)
 
-            registration_matrix = np.zeros((4, 4), dtype=np.float32)
-            registration_matrix[:3, :3] = rotation_ab
-            registration_matrix[3, 3] = 1
-            registration_matrix[:3, -1] = translation_ab.T
-            CONSOLE.log(f"[yellow] registration_matrix is {registration_matrix}")
-            registration_matrix = torch.from_numpy(registration_matrix)
-            # unregistration_matrix = torch.inverse(registration_matrix)
-            unregistration_matrix = pose_utils.inverse(registration_matrix)
-
-            poses = pose_utils.multiply(unregistration_matrix, poses)
-            # poses = unregistration_matrix[:3, :] @ poses
+                unregistration_matrix = pose_utils.inverse(registration_matrix)
+                poses = pose_utils.multiply(unregistration_matrix, poses)
 
         # Choose image_filenames and poses based on split, but after auto orient and scaling the poses.
         image_filenames = [image_filenames[i] for i in indices]
@@ -336,12 +346,12 @@ class Nerfstudio(DataParser):
             camera_type = CameraType.PERSPECTIVE
 
         idx_tensor = torch.tensor(indices, dtype=torch.long)
-        fx = float(fx_fixed) if fx_fixed else torch.tensor(fx, dtype=torch.float32)[idx_tensor]
-        fy = float(fy_fixed) if fy_fixed else torch.tensor(fy, dtype=torch.float32)[idx_tensor]
-        cx = float(cx_fixed) if cx_fixed else torch.tensor(cx, dtype=torch.float32)[idx_tensor]
-        cy = float(cy_fixed) if cy_fixed else torch.tensor(cy, dtype=torch.float32)[idx_tensor]
-        height = int(height_fixed) if height_fixed else torch.tensor(height, dtype=torch.int32)[idx_tensor]
-        width = int(width_fixed) if width_fixed else torch.tensor(width, dtype=torch.int32)[idx_tensor]
+        fx = float(meta["fl_x"]) if fx_fixed else torch.tensor(fx, dtype=torch.float32)[idx_tensor]
+        fy = float(meta["fl_y"]) if fy_fixed else torch.tensor(fy, dtype=torch.float32)[idx_tensor]
+        cx = float(meta["cx"]) if cx_fixed else torch.tensor(cx, dtype=torch.float32)[idx_tensor]
+        cy = float(meta["cy"]) if cy_fixed else torch.tensor(cy, dtype=torch.float32)[idx_tensor]
+        height = int(meta["h"]) if height_fixed else torch.tensor(height, dtype=torch.int32)[idx_tensor]
+        width = int(meta["w"]) if width_fixed else torch.tensor(width, dtype=torch.int32)[idx_tensor]
         if distort_fixed:
             distortion_params = camera_utils.get_distortion_params(
                 k1=float(meta["k1"]) if "k1" in meta else 0.0,
@@ -369,14 +379,15 @@ class Nerfstudio(DataParser):
         assert self.downscale_factor is not None
         cameras.rescale_output_resolution(scaling_factor=1.0 / self.downscale_factor)
 
-        if "applied_transform" in meta:
-            applied_transform = torch.tensor(meta["applied_transform"], dtype=transform_matrix.dtype)
-            transform_matrix = transform_matrix @ torch.cat(
-                [applied_transform, torch.tensor([[0, 0, 0, 1]], dtype=transform_matrix.dtype)], 0
-            )
-        if "applied_scale" in meta:
-            applied_scale = float(meta["applied_scale"])
-            scale_factor *= applied_scale
+        # if "applied_transform" in meta:
+        #     if not self.config.load_registration:
+        #         applied_transform = torch.tensor(meta["applied_transform"], dtype=transform_matrix.dtype)
+        #         transform_matrix = transform_matrix @ torch.cat(
+        #             [applied_transform, torch.tensor([[0, 0, 0, 1]], dtype=transform_matrix.dtype)], 0
+        #         )
+        # if "applied_scale" in meta:
+        #     applied_scale = float(meta["applied_scale"])
+        #     scale_factor *= applied_scale
 
         dataparser_outputs = DataparserOutputs(
             image_filenames=image_filenames,
@@ -388,10 +399,9 @@ class Nerfstudio(DataParser):
             metadata={
                 "depth_filenames": depth_filenames if len(depth_filenames) > 0 else None,
                 "depth_unit_scale_factor": self.config.depth_unit_scale_factor,
-                # "registration_matrix": registration_matrix if self.config.registration else None,
                 "registration_matrix": registration_matrix if self.config.registration else None,
-                "registration_rot_euler": registration_euler if self.config.registration else None,
-                "registration_translation": torch.from_numpy(translation_ab) if self.config.registration else None
+                "registration_rot_euler": registration_rot_euler if self.config.registration else None,
+                "registration_translation": registration_translation if self.config.registration else None
             },
         )
         return dataparser_outputs

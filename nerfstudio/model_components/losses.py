@@ -208,6 +208,14 @@ def pred_normal_loss(
     """Loss between normals calculated from density and normals from prediction network."""
     return (weights[..., 0] * (1.0 - torch.sum(normals * pred_normals, dim=-1))).sum(dim=-1)
 
+def uncertainty_loss(
+    weights: TensorType["bs":..., "num_samples", 1],
+    riddle: TensorType["bs":..., "num_samples", 3],
+    pred_riddle: TensorType["bs":..., "num_samples", 3],
+):
+    """Loss between normals calculated from density and normals from prediction network."""
+    return (weights[..., 0] * (riddle - pred_riddle).abs().sum(dim=-1))
+
 
 def ds_nerf_depth_loss(
     weights: TensorType[..., "num_samples", 1],

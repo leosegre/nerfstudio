@@ -58,7 +58,7 @@ class CameraOptimizerConfig(InstantiateConfig):
     orientation_noise_std: float = 0.0
     """Noise to add to initial orientations. Useful for debugging."""
 
-    optimizer: OptimizerConfig = SGDOptimizerConfig(lr=6e-4, eps=1e-15)
+    optimizer: OptimizerConfig = AdamOptimizerConfig(lr=6e-4, eps=1e-15)
     """ADAM parameters for camera optimization."""
 
     scheduler: SchedulerConfig = ExponentialDecaySchedulerConfig(max_steps=10000)

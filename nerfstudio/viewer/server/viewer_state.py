@@ -304,15 +304,12 @@ class ViewerState:
             camera_json = dataset.cameras.to_json(camera_idx=idx, image=bgr, max_size=100)
             self.viser_server.add_dataset_image(idx=f"{idx:06d}", json=camera_json)
             if registration:
-                # inv_unregistration_matrix = torch.inverse(dataset.metadata["unregistration_matrix"])
                 registration_matrix = dataset.metadata["registration_matrix"]
                 camera_to_world_tensor = torch.cat((torch.from_numpy(np.array(camera_json["camera_to_world"], dtype=np.float32)), \
                                                     torch.tensor([[0, 0, 0, 1]], dtype=torch.float32)), 0)
-                # camera_json["camera_to_world"] = (inv_unregistration_matrix @ camera_to_world_tensor)[:3, :].tolist()
+                self.viser_server.add_dataset_image(idx=f"{idx:06d}_unreg", json=camera_json)
                 camera_json["camera_to_world"] = pose_utils.multiply(registration_matrix, camera_to_world_tensor).tolist()
                 self.viser_server.add_dataset_image(idx=f"{idx:06d}_original", json=camera_json)
-                # self.vis[f"sceneState/cameras/{idx:06d}_original"].write(camera_json)
-                # self.vis[f"sceneState/cameras/{idx:06d}_original"].write(camera_json)
 
 
         # draw the scene box (i.e., the bounding box)
@@ -354,11 +351,11 @@ class ViewerState:
             # print(camera_json["camera_to_world"])
             if pre_train:
                 # self.vis[f"sceneState/cameras/{idx:06d}_step_pre_train{step:06d}"].write(camera_json)
-                self.viser_server.add_dataset_image(idx=f"{idx:06d}_step_pre_train", json=camera_json)
+                self.viser_server.add_dataset_image(idx=f"{idx:06d}_step_pre_{step:06d}", json=camera_json)
 
             else:
                 # self.vis[f"sceneState/cameras/{idx:06d}_step_{step:06d}"].write(camera_json)
-                self.viser_server.add_dataset_image(idx=f"{idx:06d}_step_", json=camera_json)
+                self.viser_server.add_dataset_image(idx=f"{idx:06d}_step__{step:06d}", json=camera_json)
 
 
     def update_scene(self, step: int, num_rays_per_batch: Optional[int] = None) -> None:

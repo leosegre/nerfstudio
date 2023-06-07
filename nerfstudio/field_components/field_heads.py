@@ -40,6 +40,7 @@ class FieldHeadNames(Enum):
     SDF = "sdf"
     ALPHA = "alpha"
     GRADIENT = "gradient"
+    DIRECTIONS = "directions"
 
 
 class FieldHead(FieldComponent):
@@ -203,3 +204,20 @@ class PredNormalsFieldHead(FieldHead):
         out_tensor = super().forward(in_tensor)
         out_tensor = torch.nn.functional.normalize(out_tensor, dim=-1)
         return out_tensor
+
+class DirectionsFieldHead(FieldHead):
+    """directions output.
+
+    Args:
+        in_dim: input dimension. If not defined in constructor, it must be set later.
+        activation: output head activation
+    """
+
+    def __init__(self, in_dim: Optional[int] = None, activation: Optional[nn.Module] = nn.Tanh()) -> None:
+        super().__init__(in_dim=in_dim, out_dim=1, field_head_name=FieldHeadNames.DIRECTIONS, activation=activation)
+
+    # def forward(self, in_tensor: TensorType["bs":..., "in_dim"]) -> TensorType["bs":..., "out_dim"]:
+    #     """Needed to normalize the output into valid normals."""
+        # out_tensor = super().forward(in_tensor)
+        # out_tensor = torch.nn.functional.normalize(out_tensor, dim=-1)
+        # return out_tensor

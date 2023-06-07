@@ -56,6 +56,7 @@ from nerfstudio.model_components.renderers import (
     DepthRenderer,
     NormalsRenderer,
     RGBRenderer,
+    UncertaintyRenderer,
 )
 from nerfstudio.model_components.scene_colliders import NearFarCollider
 from nerfstudio.model_components.shaders import NormalsShader
@@ -112,6 +113,8 @@ class NerfactoModelConfig(ModelConfig):
     """Arguments for the proposal density fields."""
     proposal_initial_sampler: Literal["piecewise", "uniform"] = "piecewise"
     """Initial sampler for the proposal network. Piecewise is preferred for unbounded scenes."""
+    rgb_loss_mult: float = 1.0
+    """rgb loss multiplier."""
     interlevel_loss_mult: float = 1.0
     """Proposal loss multiplier."""
     distortion_loss_mult: float = 0.002
@@ -120,6 +123,8 @@ class NerfactoModelConfig(ModelConfig):
     """Orientation loss multiplier on computed normals."""
     pred_normal_loss_mult: float = 0.001
     """Predicted normal loss multiplier."""
+    pred_directions_loss_mult: float = 0.001
+    """Predicted directions loss multiplier."""
     use_proposal_weight_anneal: bool = True
     """Whether to use proposal weight annealing."""
     use_average_appearance_embedding: bool = True
@@ -132,8 +137,12 @@ class NerfactoModelConfig(ModelConfig):
     """Whether use single jitter or not for the proposal networks."""
     predict_normals: bool = False
     """Whether to predict normals or not."""
+    predict_directions: bool = False
+    """Whether to predict directions or not."""
     disable_scene_contraction: bool = False
     """Whether to disable scene contraction or not."""
+    register: bool = False
+    """Whether to register scene or not."""
 
 
 class NerfactoModel(Model):
@@ -154,6 +163,8 @@ class NerfactoModel(Model):
         else:
             scene_contraction = SceneContraction(order=float("inf"))
 
+        self.register = self.config.register
+
         # Fields
         self.field = TCNNNerfactoField(
             self.scene_box.aabb,
@@ -166,6 +177,7 @@ class NerfactoModel(Model):
             spatial_distortion=scene_contraction,
             num_images=self.num_train_data,
             use_pred_normals=self.config.predict_normals,
+            use_pred_directions=self.config.predict_directions,
             use_average_appearance_embedding=self.config.use_average_appearance_embedding,
         )
 
@@ -219,6 +231,7 @@ class NerfactoModel(Model):
         self.renderer_accumulation = AccumulationRenderer()
         self.renderer_depth = DepthRenderer()
         self.renderer_normals = NormalsRenderer()
+        self.renderer_uncertainty = UncertaintyRenderer()
 
         # shaders
         self.normals_shader = NormalsShader()
@@ -286,10 +299,20 @@ class NerfactoModel(Model):
         }
 
         if self.config.predict_normals:
+            # print(field_outputs[FieldHeadNames.NORMALS])
             normals = self.renderer_normals(normals=field_outputs[FieldHeadNames.NORMALS], weights=weights)
-            pred_normals = self.renderer_normals(field_outputs[FieldHeadNames.PRED_NORMALS], weights=weights)
+            pred_normals = self.renderer_normals(normals=field_outputs[FieldHeadNames.PRED_NORMALS], weights=weights)
             outputs["normals"] = self.normals_shader(normals)
             outputs["pred_normals"] = self.normals_shader(pred_normals)
+        if self.config.predict_directions:
+            riddle = torch.sin(ray_samples.frustums.directions.detach().pow(2).sum(dim=-1) +  ray_samples.frustums.get_positions().detach().pow(2).sum(dim=-1)).unsqueeze(-1)
+            directions = self.renderer_uncertainty(betas=riddle, weights=weights)
+            pred_directions = self.renderer_uncertainty(betas=field_outputs[FieldHeadNames.DIRECTIONS], weights=weights)
+            # outputs["directions"] = self.normals_shader(directions)
+            # outputs["pred_directions"] = self.normals_shader(pred_directions)
+            outputs["directions"] = directions
+            outputs["pred_directions"] = pred_directions
+
         # These use a lot of GPU memory, so we avoid storing them for eval.
         if self.training:
             outputs["weights_list"] = weights_list
@@ -305,6 +328,14 @@ class NerfactoModel(Model):
                 field_outputs[FieldHeadNames.NORMALS].detach(),
                 field_outputs[FieldHeadNames.PRED_NORMALS],
             )
+
+        if self.training and self.config.predict_directions:
+            outputs["rendered_pred_directions_loss"] = pred_normal_loss(
+                weights.detach(),
+                riddle,
+                field_outputs[FieldHeadNames.DIRECTIONS],
+            )
+
 
         for i in range(self.config.num_proposal_iterations):
             outputs[f"prop_depth_{i}"] = self.renderer_depth(weights=weights_list[i], ray_samples=ray_samples_list[i])
@@ -322,8 +353,22 @@ class NerfactoModel(Model):
     def get_loss_dict(self, outputs, batch, metrics_dict=None, full_images=False):
         loss_dict = {}
         image = batch["image"].to(self.device)
-        loss_dict["rgb_loss"] = self.rgb_loss(image, outputs["rgb"])
+
+        if self.register:
+            # yuv_transform = torch.tensor([[0.2126, 0.7152, 0.0722], [-0.09991, -0.33609, 0.436], [0.615, -0.55861, -0.05639]], device=self.device)
+            yuv_transform = torch.tensor([[0.0722, 0.7152, 0.2126], [0.436, -0.33609, -0.09991], [-0.05639, -0.55861, 0.615]], device=self.device)
+
+            image_yuv = torch.matmul(yuv_transform, image.unsqueeze(-1)).squeeze()
+            rgb_yuv = torch.matmul(yuv_transform, outputs["rgb"].unsqueeze(-1)).squeeze()
+            # print(image_yuv.shape)
+            # print(rgb_yuv.shape)
+            loss_dict["rgb_loss"] = self.config.rgb_loss_mult * self.rgb_loss(image_yuv[..., 1:], rgb_yuv[..., 1:])
+        else:
+            loss_dict["rgb_loss"] = self.config.rgb_loss_mult * self.rgb_loss(image, outputs["rgb"])
+
         if self.training and not full_images:
+            # print(outputs["depth"])
+            # loss_dict["depth_loss"] = self.rgb_loss(outputs["depth"], torch.tensor([0.5], device=self.device))
             loss_dict["interlevel_loss"] = self.config.interlevel_loss_mult * interlevel_loss(
                 outputs["weights_list"], outputs["ray_samples_list"]
             )
@@ -339,10 +384,14 @@ class NerfactoModel(Model):
                 loss_dict["pred_normal_loss"] = self.config.pred_normal_loss_mult * torch.mean(
                     outputs["rendered_pred_normal_loss"]
                 )
+            if self.config.predict_directions:
+                loss_dict["pred_directions_loss"] = self.config.pred_directions_loss_mult * torch.mean(
+                    outputs["rendered_pred_directions_loss"]
+                )
         return loss_dict
 
     def get_image_metrics_and_images(
-        self, outputs: Dict[str, torch.Tensor], batch: Dict[str, torch.Tensor]
+        self, outputs: Dict[str, torch.Tensor], batch: Dict[str, torch.Tensor], step
     ) -> Tuple[Dict[str, float], Dict[str, torch.Tensor]]:
         image = batch["image"].to(self.device)
         rgb = outputs["rgb"]
@@ -368,102 +417,165 @@ class NerfactoModel(Model):
         image_numpy = image.cpu().numpy()
         rgb_numpy = rgb.cpu().numpy()
 
-        gray_image = cv.cvtColor(image_numpy, cv.COLOR_BGR2GRAY)
-        gray_image = cv.normalize(gray_image, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
-        gray_rgb = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2GRAY)
-        gray_rgb = cv.normalize(gray_rgb, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
-
-        # # Calculate Histogram
-        # num_bins = int(256 / 25)
-        # image_hist = cv.calcHist([gray_image], [0], None, [num_bins], [0, 256])
-        # image_hist /= image_hist.sum()
-        # rgb_hist = cv.calcHist([gray_rgb], [0], None, [num_bins], [0, 256])
-        # rgb_hist /= rgb_hist.sum()
-        # hist_loss = (np.abs(image_hist - rgb_hist)).sum()
-        # lamda_hist = 5
-        # hist_loss = lamda_hist * hist_loss
-
+        # gray_image = cv.cvtColor(image_numpy, cv.COLOR_BGR2GRAY)
+        # gray_image = cv.normalize(gray_image, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+        # gray_rgb = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2GRAY)
+        # gray_rgb = cv.normalize(gray_rgb, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+        color_image = cv.cvtColor(image_numpy, cv.COLOR_BGR2RGB)
+        color_image = cv.normalize(color_image, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+        color_rgb = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2RGB)
+        color_rgb = cv.normalize(color_rgb, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
         # Calculate Homography
         sift = cv.SIFT_create()
-        kp_image, des_image = sift.detectAndCompute(gray_image, None)
-        kp_rgb, des_rgb = sift.detectAndCompute(gray_rgb, None)
+        kp_image, des_image = sift.detectAndCompute(color_image, None)
+        kp_rgb, des_rgb = sift.detectAndCompute(color_rgb, None)
+
+        # image_numpy = cv.normalize(image_numpy, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+        # rgb_numpy = cv.normalize(rgb_numpy, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+        # # Calculate Homography
+        # sift = cv.SIFT_create()
+        # kp_image, des_image = sift.detectAndCompute(image_numpy, None)
+        # kp_rgb, des_rgb = sift.detectAndCompute(rgb_numpy, None)
+
+        # img2 = cv.drawKeypoints(image_numpy, kp_image, None)
+        # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/step_{step}_image_siftkpgray.jpg", img2)
+        # img2 = cv.drawKeypoints(rgb_numpy, kp_rgb, None)
+        # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/step_{step}_rgb_siftkpgray.jpg", img2)
 
         # FLANN parameters
         FLANN_INDEX_KDTREE = 1
-        MIN_MATCH_COUNT = 30
+        MIN_MATCH_COUNT = 10
         index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
         search_params = dict(checks=50)  # or pass empty dictionary
         flann = cv.FlannBasedMatcher(index_params, search_params)
-        matches = flann.knnMatch(des_image, des_rgb, k=2)
+
+        bf = cv.BFMatcher(crossCheck=True)
+
+        if len(kp_rgb) == 0:
+            matches = []
+        else:
+            # matches = flann.knnMatch(des_image, des_rgb, k=2)
+            matches = bf.knnMatch(des_image, des_rgb, k=1)
+        # print("step:", step, "matches:", len(matches))
+
         # Need to draw only good matches, so create a mask
         good = []
         # ratio test as per Lowe's paper
-        for i, (m, n) in enumerate(matches):
-            if m.distance < 0.7 * n.distance:
-                good.append(m)
+        for i, m in enumerate(matches):
+            if len(m) > 0:
+                good.append(m[0])
+        # print("step:", step, "good:", len(good))
+
 
         if len(good) > MIN_MATCH_COUNT:
             src_pts = np.float32([kp_image[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
             dst_pts = np.float32([kp_rgb[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
-            M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 5.0)
-            # M, mask = cv.findFundamentalMat(src_pts, dst_pts, cv.RANSAC, 5.0)
-            # print(M.shape[0])
+            M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 9.0)
             matchesMask = mask.ravel().tolist()
-            h, w = gray_image.shape
-            pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
-            dst = cv.perspectiveTransform(pts, M)
-            gray_rgb = cv.polylines(gray_rgb, [np.int32(dst)], True, (0, 0, 255), 3, cv.LINE_AA)
+            if np.array(matchesMask).sum() == 0:
+                print("matchesMask is 0 for in all entries")
+                matchesMask = None
+            else:
+                h, w = color_image.shape[:-1]
+                pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
+                dst = cv.perspectiveTransform(pts, M)
+                color_rgb_poly = cv.polylines(color_rgb, [np.int32(dst)], True, (0, 0, 255), 3, cv.LINE_AA)
+
+                draw_params = dict(matchColor=(0, 255, 0),
+                                   singlePointColor=None,
+                                   matchesMask=None,
+                                   flags=2)
+                # img3 = cv.drawMatches(color_image, kp_image, color_rgb_poly, kp_rgb, good, None, **draw_params)
+                # print("Found - {} matches".format(len(good)))
+                # print(np.linalg.det(M))
+                # img2 = cv.drawKeypoints(gray_rgb, kp_rgb, None)
+                # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/step_{step}_rgb_siftkpgray_{len(good)}.jpg", img3)
         else:
+            # img2 = cv.drawKeypoints(rgb_numpy, kp_rgb, None)
+            # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/step_{step}_rgb_siftkpgray_{len(good)}.jpg", img2)
             print("Not enough matches are found - {}/{}".format(len(good), MIN_MATCH_COUNT))
             matchesMask = None
 
-        draw_params = dict(matchColor=(0, 255, 0),
-                           singlePointColor=None,
-                           matchesMask=matchesMask,
-                           flags=2)
-        img3 = cv.drawMatches(gray_image, kp_image, gray_rgb, kp_rgb, good, None, **draw_params)
-
+        # image_numpy2 = cv.cvtColor(image_numpy, cv.COLOR_BGR2RGB)
+        # image_numpy2 = cv.normalize(image_numpy2, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+        # rgb_numpy2 = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2RGB)
+        # rgb_numpy2 = cv.normalize(rgb_numpy2, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+        #
+        # cv.imwrite(
+        #     f"/home/leo/nerfstudio_reg/nerfstudio/check/homography_step_{step}_random_{random.randint(0, 100)}.png",
+        #     np.concatenate((image_numpy2, rgb_numpy2), axis=1))
 
         if matchesMask == None:
-            loss = torch.inf
+            loss = 10
         else:
-            # QR decomposition
-            rot_mat = M[:2, :2]
-            trans_mat = M[:2, 2]
-            a = rot_mat[0, 0]
-            b = rot_mat[0, 1]
-            d = rot_mat[1, 0]
-            e = rot_mat[1, 1]
-            c = trans_mat[0]
-            f = trans_mat[1]
+
+            # map src to dst
+            im_image_dst = cv.warpPerspective(image_numpy, M, (w, h))
+            mask = np.ones(image_numpy.shape, dtype=np.uint8)
+            mask = cv.warpPerspective(mask, M, (w, h))
+
+            threshold = 0.5
+            precentage = mask.sum() / (mask.shape[0] * mask.shape[1] * 3)
 
 
-            det_rot = np.linalg.det(rot_mat)
+            det = np.linalg.det(M)
+            if 0.1 < det < 10 and precentage > threshold:
+                image_numpy = cv.cvtColor(image_numpy, cv.COLOR_BGR2RGB)
+                image_numpy = cv.normalize(image_numpy, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+                im_image_dst = cv.cvtColor(im_image_dst, cv.COLOR_BGR2RGB)
+                im_image_dst = cv.normalize(im_image_dst, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+                rgb_numpy = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2RGB)
+                rgb_numpy = cv.normalize(rgb_numpy, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
 
-            p = np.sqrt(a**2 + b**2)
-            r = det_rot/p
-            q = (a*d+b*e)/det_rot
-            phi = np.arctan2(b, a)
+                rgb_for_loss = torch.from_numpy(np.moveaxis(rgb_numpy*mask, -1, 0)).to(dtype=float)
+                image_for_loss = torch.from_numpy(np.moveaxis(im_image_dst, -1, 0)).to(dtype=float)
+                loss = self.rgb_loss(image_for_loss.unsqueeze(0), rgb_for_loss.unsqueeze(0)) / mask.sum()
 
-            lamda_rot = 1
-            p_loss = np.sqrt((1-p)**2)
-            r_loss = np.sqrt((1-r)**2)
-            q_loss = np.abs(q)
-            c_loss = np.abs(c/w)
-            f_loss = np.abs(f/h)
-            phi_loss = lamda_rot*np.abs(phi)
-
-
-            loss = p_loss + r_loss + q_loss + c_loss + f_loss + phi_loss
-
-            cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/image_loss_{loss:.3f}"
-                       f"_p_{p_loss:.3f}_r_{r_loss:.3f}_q_{q_loss:.3f}"
-                       f"_c_{c_loss:.3f}_f_{f_loss:.3f}_phi_{phi_loss:.3f}.png", img3)
+                cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/homography_step_{step}_loss_{loss:.7f}_det_{det:.4f}.png",
+                           np.concatenate((image_numpy, im_image_dst, rgb_numpy), axis=1))
+            else:
+                loss = 10
 
 
 
-            # loss = 0
-            # print(M)
+
+
+
+            # # QR decomposition
+            # rot_mat = M[:2, :2]
+            # trans_mat = M[:2, 2]
+            # a = rot_mat[0, 0]
+            # b = rot_mat[0, 1]
+            # d = rot_mat[1, 0]
+            # e = rot_mat[1, 1]
+            # c = trans_mat[0]
+            # f = trans_mat[1]
+            #
+            #
+            # det_rot = np.linalg.det(rot_mat)
+            #
+            # p = np.sqrt(a**2 + b**2)
+            # r = det_rot/p
+            # q = (a*d+b*e)/det_rot
+            # phi = np.arctan2(b, a)
+            #
+            # lamda_rot = 1
+            # p_loss = np.sqrt((1-p)**2)
+            # r_loss = np.sqrt((1-r)**2)
+            # q_loss = np.abs(q)
+            # c_loss = np.abs(c/w)
+            # f_loss = np.abs(f/h)
+            # phi_loss = lamda_rot*np.abs(phi)
+            #
+            #
+            # loss = p_loss + r_loss + q_loss + c_loss + f_loss + phi_loss
+            #
+            # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/image_{rnd_num}_loss_{loss:.3f}"
+            #            f"_p_{p_loss:.3f}_r_{r_loss:.3f}_q_{q_loss:.3f}"
+            #            f"_c_{c_loss:.3f}_f_{f_loss:.3f}_phi_{phi_loss:.3f}.png", img3)
+
+
+
             # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/image_loss_{loss:.0f}.png", img3)
 
         # all of these metrics will be logged as scalars
