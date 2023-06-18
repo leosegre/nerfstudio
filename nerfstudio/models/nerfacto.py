@@ -18,6 +18,7 @@ NeRF implementation that combines many recent advancements.
 
 from __future__ import annotations
 
+import copy
 import random
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, Type
@@ -40,12 +41,14 @@ from nerfstudio.field_components.field_heads import FieldHeadNames
 from nerfstudio.field_components.spatial_distortions import SceneContraction
 from nerfstudio.fields.density_fields import HashMLPDensityField
 from nerfstudio.fields.nerfacto_field import TCNNNerfactoField
+from nerfstudio.fields.nf_field import NFField
 from nerfstudio.model_components.losses import (
     MSELoss,
     distortion_loss,
     interlevel_loss,
     orientation_loss,
     pred_normal_loss,
+    view_likelihood_loss,
 )
 from nerfstudio.model_components.ray_samplers import (
     ProposalNetworkSampler,
@@ -62,6 +65,9 @@ from nerfstudio.model_components.scene_colliders import NearFarCollider
 from nerfstudio.model_components.shaders import NormalsShader
 from nerfstudio.models.base_model import Model, ModelConfig
 from nerfstudio.utils import colormaps
+
+from nerfstudio.fields.base_field import shift_directions_for_tcnn
+
 
 from torchvision.utils import save_image
 from scipy.ndimage import gaussian_filter
@@ -125,6 +131,8 @@ class NerfactoModelConfig(ModelConfig):
     """Predicted normal loss multiplier."""
     pred_directions_loss_mult: float = 0.001
     """Predicted directions loss multiplier."""
+    view_likelihood_loss_mult: float = 1
+    """View_likelihood loss multiplier."""
     use_proposal_weight_anneal: bool = True
     """Whether to use proposal weight annealing."""
     use_average_appearance_embedding: bool = True
@@ -139,6 +147,8 @@ class NerfactoModelConfig(ModelConfig):
     """Whether to predict normals or not."""
     predict_directions: bool = False
     """Whether to predict directions or not."""
+    predict_view_likelihood: bool = False
+    """Whether to predict uncertainty or not."""
     disable_scene_contraction: bool = False
     """Whether to disable scene contraction or not."""
     register: bool = False
@@ -178,8 +188,11 @@ class NerfactoModel(Model):
             num_images=self.num_train_data,
             use_pred_normals=self.config.predict_normals,
             use_pred_directions=self.config.predict_directions,
+            use_view_likelihood=False,
             use_average_appearance_embedding=self.config.use_average_appearance_embedding,
         )
+        if self.config.predict_view_likelihood:
+            self.nf_field = NFField()
 
         self.density_fns = []
         num_prop_nets = self.config.num_proposal_iterations
@@ -248,6 +261,8 @@ class NerfactoModel(Model):
         param_groups = {}
         param_groups["proposal_networks"] = list(self.proposal_networks.parameters())
         param_groups["fields"] = list(self.field.parameters())
+        if self.config.predict_view_likelihood:
+            param_groups["nf_field"] = list(self.nf_field.parameters())
         return param_groups
 
     def get_training_callbacks(
@@ -305,13 +320,46 @@ class NerfactoModel(Model):
             outputs["normals"] = self.normals_shader(normals)
             outputs["pred_normals"] = self.normals_shader(pred_normals)
         if self.config.predict_directions:
-            riddle = torch.sin(ray_samples.frustums.directions.detach().pow(2).sum(dim=-1) +  ray_samples.frustums.get_positions().detach().pow(2).sum(dim=-1)).unsqueeze(-1)
-            directions = self.renderer_uncertainty(betas=riddle, weights=weights)
+            # code = torch.sin(ray_samples.frustums.directions.detach().pow(2).sum(dim=-1) +  ray_samples.frustums.get_positions().detach().pow(2).sum(dim=-1) + field_outputs[FieldHeadNames.RGB].detach().pow(2).sum(dim=-1)).unsqueeze(-1)
+            code = torch.sin(shift_directions_for_tcnn(ray_samples.frustums.directions).detach().pow(2).sum(dim=-1) +  ray_samples.frustums.get_positions().detach().pow(2).sum(dim=-1)).unsqueeze(-1)
+            directions = self.renderer_uncertainty(betas=code, weights=weights)
             pred_directions = self.renderer_uncertainty(betas=field_outputs[FieldHeadNames.DIRECTIONS], weights=weights)
             # outputs["directions"] = self.normals_shader(directions)
             # outputs["pred_directions"] = self.normals_shader(pred_directions)
             outputs["directions"] = directions
             outputs["pred_directions"] = pred_directions
+
+        if self.config.predict_view_likelihood:
+            cloned_weights = weights.detach()
+            argmax_weights = cloned_weights.max(axis=1)[1].squeeze()
+            # print(argmax_weights.shape)
+            # print(ray_samples[np.arange(len(ray_samples)), argmax_weights].shape)
+            nf_field_outputs = self.nf_field.get_outputs(ray_samples[np.arange(len(ray_samples)), argmax_weights])
+            # print(cloned_weights.shape)
+            # print(nf_field_outputs[FieldHeadNames.VIEW_LOG_LIKELIHOOD].shape)
+            # print(cloned_weights.argmax(axis=1).shape)
+            outputs["view_log_likelihood"] = nf_field_outputs[FieldHeadNames.VIEW_LOG_LIKELIHOOD]
+            # outputs["view_log_likelihood"][outputs["view_log_likelihood"].isnan()] = 0
+            # outputs["view_log_likelihood"] = self.renderer_uncertainty(betas=nf_field_outputs[FieldHeadNames.VIEW_LOG_LIKELIHOOD], weights=torch.clip((cloned_weights-0.1), 1/48, 1))
+
+
+
+            # if outputs["view_log_likelihood"].max() > 1:
+            # print("max weight", cloned_weights.max())
+            # print("max log_likelihood", field_outputs[FieldHeadNames.VIEW_LOG_LIKELIHOOD].max())
+
+            # outputs["view_log_likelihood"] = self.renderer_uncertainty(betas=field_outputs[FieldHeadNames.VIEW_LOG_LIKELIHOOD], weights=cloned_weights)
+            # outputs["view_log_likelihood"] = view_log_likelihood
+            # with torch.no_grad():
+            #     # cloned_weights = weights.detach()
+            #     outputs["view_likelihood"] = self.renderer_uncertainty(betas=field_outputs[FieldHeadNames.VIEW_LIKELIHOOD], weights=cloned_weights)
+            #     # cloned_weights = weights.detach()
+            #     outputs["max_density"] = cloned_weights.squeeze().max(dim=-1)[0]
+            #     # print(outputs["max_density"].shape)
+            #     # outputs["view_likelihood"] = view_log_likelihood
+            # with torch.no_grad():
+            #     outputs["view_likelihood_exp"] = torch.exp(self.renderer_uncertainty(betas=field_outputs[FieldHeadNames.VIEW_LOG_LIKELIHOOD].detach(), weights=weights.detach()))
+
 
         # These use a lot of GPU memory, so we avoid storing them for eval.
         if self.training:
@@ -332,9 +380,15 @@ class NerfactoModel(Model):
         if self.training and self.config.predict_directions:
             outputs["rendered_pred_directions_loss"] = pred_normal_loss(
                 weights.detach(),
-                riddle,
+                code,
                 field_outputs[FieldHeadNames.DIRECTIONS],
             )
+
+        # if self.training and self.config.predict_view_likelihood:
+        #     outputs["rendered_view_log_likelihood_loss"] = view_likelihood_loss(
+        #         weights.detach(),
+        #         field_outputs[FieldHeadNames.VIEW_LOG_LIKELIHOOD],
+        #     )
 
 
         for i in range(self.config.num_proposal_iterations):
@@ -388,6 +442,11 @@ class NerfactoModel(Model):
                 loss_dict["pred_directions_loss"] = self.config.pred_directions_loss_mult * torch.mean(
                     outputs["rendered_pred_directions_loss"]
                 )
+            if self.config.predict_view_likelihood:
+                loss_dict["view_log_likelihood_loss"] = self.config.view_likelihood_loss_mult * -torch.mean(
+                    outputs["view_log_likelihood"]
+                )
+
         return loss_dict
 
     def get_image_metrics_and_images(

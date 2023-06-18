@@ -124,39 +124,42 @@ class Optimizers:
         for _, optimizer in self.optimizers.items():
             optimizer.zero_grad()
 
-    def optimizer_scaler_step_all(self, grad_scaler: GradScaler) -> None:
+    def optimizer_scaler_step_all(self, grad_scaler: GradScaler, exclude=[]) -> None:
         """Take an optimizer step using a grad scaler.
 
         Args:
             grad_scaler: GradScaler to use
         """
         for param_group, optimizer in self.optimizers.items():
-            max_norm = self.config[param_group]["optimizer"].max_norm
-            if max_norm is not None:
-                grad_scaler.unscale_(optimizer)
-                torch.nn.utils.clip_grad_norm_(self.parameters[param_group], max_norm)
-            grad_scaler.step(optimizer)
+            if param_group not in exclude:
+                max_norm = self.config[param_group]["optimizer"].max_norm
+                if max_norm is not None:
+                    grad_scaler.unscale_(optimizer)
+                    torch.nn.utils.clip_grad_norm_(self.parameters[param_group], max_norm)
+                grad_scaler.step(optimizer)
 
-    def optimizer_step_all(self) -> None:
+    def optimizer_step_all(self, exclude=[]) -> None:
         """Run step for all optimizers."""
         for param_group, optimizer in self.optimizers.items():
-            # note that they key is the parameter name
-            max_norm = self.config[param_group]["optimizer"].max_norm
-            if max_norm is not None:
-                torch.nn.utils.clip_grad_norm_(self.parameters[param_group], max_norm)
-            optimizer.step()
+            if param_group not in exclude:
+                # note that they key is the parameter name
+                max_norm = self.config[param_group]["optimizer"].max_norm
+                if max_norm is not None:
+                    torch.nn.utils.clip_grad_norm_(self.parameters[param_group], max_norm)
+                optimizer.step()
 
-    def scheduler_step_all(self, step: int) -> None:
+    def scheduler_step_all(self, step: int, exclude=[]) -> None:
         """Run step for all schedulers.
 
         Args:
             step: the current step
         """
         for param_group_name, scheduler in self.schedulers.items():
-            scheduler.step()
-            # TODO(ethan): clean this up. why is there indexing into a list?
-            lr = scheduler.get_last_lr()[0]
-            writer.put_scalar(name=f"learning_rate/{param_group_name}", scalar=lr, step=step)
+            if param_group_name not in exclude:
+                scheduler.step()
+                # TODO(ethan): clean this up. why is there indexing into a list?
+                lr = scheduler.get_last_lr()[0]
+                writer.put_scalar(name=f"learning_rate/{param_group_name}", scalar=lr, step=step)
 
     def load_optimizers(self, loaded_state: Dict[str, Any]) -> None:
         """Helper to load the optimizer state from previous checkpoint

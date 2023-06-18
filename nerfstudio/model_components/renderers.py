@@ -313,6 +313,9 @@ class UncertaintyRenderer(nn.Module):
         Returns:
             Rendering of uncertainty.
         """
+        # weights[weights<0.1] = 0
+        # print(weights.dtype)
+        # print(betas.dtype)
         uncertainty = torch.sum(weights * betas, dim=-2)
         return uncertainty
 

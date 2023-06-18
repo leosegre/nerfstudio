@@ -41,6 +41,7 @@ from nerfstudio.field_components.field_heads import (
     TransientDensityFieldHead,
     TransientRGBFieldHead,
     UncertaintyFieldHead,
+    # ViewLikelihoodFieldHead,
 )
 from nerfstudio.field_components.mlp import MLP
 from nerfstudio.field_components.spatial_distortions import (
@@ -48,6 +49,7 @@ from nerfstudio.field_components.spatial_distortions import (
     SpatialDistortion,
 )
 from nerfstudio.fields.base_field import Field, shift_directions_for_tcnn
+import normflows as nf
 
 try:
     import tinycudann as tcnn
@@ -104,6 +106,7 @@ class TCNNNerfactoField(Field):
         pass_semantic_gradients: bool = False,
         use_pred_normals: bool = False,
         use_pred_directions: bool = False,
+        use_view_likelihood: bool = False,
         use_average_appearance_embedding: bool = False,
         spatial_distortion: Optional[SpatialDistortion] = None,
     ) -> None:
@@ -125,6 +128,7 @@ class TCNNNerfactoField(Field):
         self.use_semantics = use_semantics
         self.use_pred_normals = use_pred_normals
         self.use_pred_directions = use_pred_directions
+        self.use_view_likelihood = use_view_likelihood
         self.pass_semantic_gradients = pass_semantic_gradients
 
         base_res: int = 16
@@ -218,17 +222,67 @@ class TCNNNerfactoField(Field):
         # predicted directions
         if self.use_pred_directions:
             self.mlp_pred_directions = tcnn.Network(
-                n_input_dims=self.direction_encoding.n_output_dims + + self.geo_feat_dim + self.position_encoding.n_output_dims,
+                n_input_dims=self.geo_feat_dim + self.geo_feat_dim,
                 n_output_dims=hidden_dim_transient,
                 network_config={
                     "otype": "FullyFusedMLP",
                     "activation": "Tanh",
                     "output_activation": "None",
                     "n_neurons": 64,
-                    "n_hidden_layers": 3,
+                    "n_hidden_layers": 2,
                 },
             )
             self.field_head_pred_directions = DirectionsFieldHead(in_dim=self.mlp_pred_directions.n_output_dims)
+
+
+            self.mlp_pred_directions_dirs = tcnn.Network(
+                n_input_dims=self.direction_encoding.n_output_dims,
+                n_output_dims=self.geo_feat_dim,
+                network_config={
+                    "otype": "FullyFusedMLP",
+                    "activation": "ReLU",
+                    "output_activation": "Sigmoid",
+                    "n_neurons": hidden_dim_color,
+                    "n_hidden_layers": num_layers_color - 1,
+                },
+            )
+
+
+        # # view likelihood
+        # # if self.use_view_likelihood:
+        # # num_dims = self.direction_encoding.n_output_dims + self.position_encoding.n_output_dims
+        # num_dims = 6
+        #
+        # # Define 2D Gaussian base distribution
+        # base = nf.distributions.base.DiagGaussian(num_dims)
+        #
+        # # Define list of flows
+        # num_layers = 1
+        # flows = []
+        # for i in range(num_layers):
+        #     # Neural network with two hidden layers having 64 units each
+        #     # Last layer is initialized by zeros making training more stable
+        #     # param_map = nf.nets.MLP([3, 64, 64, 6], init_zeros=True)
+        #     param_map = nf.nets.MLP([int(num_dims/2), 64, 64, num_dims], init_zeros=True)
+        #     # Add flow layer
+        #     flows.append(nf.flows.AffineCouplingBlock(param_map))
+        #     # Swap dimensions
+        #     flows.append(nf.flows.Permute(num_dims, mode='swap'))
+        #
+        # self.nf_model = nf.NormalizingFlow(base, flows)
+
+            # self.mlp_view_likelihood = tcnn.Network(
+            #     n_input_dims=self.direction_encoding.n_output_dims + self.position_encoding.n_output_dims,
+            #     n_output_dims=hidden_dim_transient,
+            #     network_config={
+            #         "otype": "FullyFusedMLP",
+            #         "activation": "None",
+            #         "output_activation": "None",
+            #         "n_neurons": 64,
+            #         "n_hidden_layers": 2,
+            #     },
+            # )
+            # self.field_head_view_likelihood = ViewLikelihoodFieldHead(in_dim=self.mlp_view_likelihood.n_output_dims)
 
         self.mlp_head = tcnn.Network(
             n_input_dims=self.direction_encoding.n_output_dims + self.geo_feat_dim,
@@ -331,13 +385,35 @@ class TCNNNerfactoField(Field):
 
         # predicted directions
         if self.use_pred_directions:
-            positions = ray_samples.frustums.get_positions()
-
-            positions_flat = self.position_encoding(positions.view(-1, 3))
-            pred_directions_inp = torch.cat([d, positions_flat, density_embedding.view(-1, self.geo_feat_dim)], dim=-1)
+            # positions = ray_samples.frustums.get_positions()
+            # positions_flat = self.position_encoding(positions.view(-1, 3))
+            pred_directions_inp = self.mlp_pred_directions_dirs(d)
+            pred_directions_inp = torch.cat([pred_directions_inp, density_embedding.view(-1, self.geo_feat_dim)], dim=-1)
 
             x = self.mlp_pred_directions(pred_directions_inp).view(*outputs_shape, -1).to(directions)
             outputs[FieldHeadNames.DIRECTIONS] = self.field_head_pred_directions(x)
+
+        # # predicted view likelihood
+        # if self.use_view_likelihood:
+        #     positions = ray_samples.frustums.get_positions().view(-1, 3)
+        #     # positions = self.position_encoding(positions).to(dtype=torch.float32)
+        #     dirs = shift_directions_for_tcnn(ray_samples.frustums.directions).contiguous().view(-1, 3)
+        #     # dirs = self.direction_encoding(dirs).to(dtype=torch.float32)
+        #     # print(positions.shape)
+        #     # print(dirs.shape)
+        #     # positions_flat = self.position_encoding(positions.view(-1, 3))
+        #     # view_likelihood_inp = torch.cat([d, positions_flat], dim=-1)
+        #     view_likelihood_inp = torch.cat([dirs, positions], dim=-1)
+        #
+        #     # x = self.mlp_view_likelihood(view_likelihood_inp).view(*outputs_shape, -1).to(directions)
+        #     # print(view_likelihood_inp.shape)
+        #     # import ipdb; ipdb.set_trace()
+        #     outputs[FieldHeadNames.VIEW_LOG_LIKELIHOOD] = self.nf_model.log_prob(view_likelihood_inp).view(*outputs_shape, -1).to(directions)
+        #     # with torch.no_grad():
+        #     #     outputs[FieldHeadNames.VIEW_LIKELIHOOD] = torch.exp(outputs[FieldHeadNames.VIEW_LOG_LIKELIHOOD])
+        #     # print(x)
+        #     # .view(*outputs_shape, -1).to(directions)
+
 
         h = torch.cat(
             [

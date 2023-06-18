@@ -43,6 +43,10 @@ from nerfstudio.data.datasets.base_dataset import InputDataset
 from nerfstudio.pipelines.base_pipeline import Pipeline, VanillaPipeline
 from nerfstudio.utils.rich_utils import ItersPerSecColumn
 
+from nerfstudio.fields.base_field import shift_directions_for_tcnn
+from nerfstudio.field_components.activations import trunc_exp
+
+
 CONSOLE = Console(width=120)
 
 
@@ -204,6 +208,91 @@ def generate_point_cloud(
             # mask out normals for points that were removed with remove_outliers
             normals = normals[ind]
         pcd.normals = o3d.utility.Vector3dVector(normals.double().cpu().numpy())
+
+    return pcd
+
+def generate_point_cloud_nf(
+    pipeline: Pipeline,
+    num_points: int = 1000000,
+    remove_outliers: bool = True,
+    use_bounding_box: bool = True,
+    bounding_box_min: Tuple[float, float, float] = (-1.0, -1.0, -1.0),
+    bounding_box_max: Tuple[float, float, float] = (1.0, 1.0, 1.0),
+    std_ratio: float = 10.0,
+) -> o3d.geometry.PointCloud:
+    """Generate a point cloud from a nerf.
+
+    Args:
+        pipeline: Pipeline to evaluate with.
+        num_points: Number of points to generate. May result in less if outlier removal is used.
+        remove_outliers: Whether to remove outliers.
+        use_bounding_box: Whether to use a bounding box to sample points.
+        bounding_box_min: Minimum of the bounding box.
+        bounding_box_max: Maximum of the bounding box.
+        std_ratio: Threshold based on STD of the average distances across the point cloud to remove outliers.
+
+    Returns:
+        Point cloud.
+    """
+
+    # pylint: disable=too-many-statements
+    with torch.no_grad():
+        d_cat_x, log_prob = pipeline.model.nf_field.nf_model.sample(num_points)
+        points = d_cat_x[..., :3]
+        directions = d_cat_x[..., 3:]
+
+
+
+        # Get density
+        positions = pipeline.model.field.spatial_distortion(points)
+        positions = (positions + 2.0) / 4.0
+        positions_flat = positions.view(-1, 3)
+        h = pipeline.model.field.mlp_base(positions_flat)
+        density_before_activation, base_mlp_out = torch.split(h, [1, pipeline.model.field.geo_feat_dim], dim=-1)
+        density = trunc_exp(density_before_activation.to(positions)).squeeze()
+
+        # Get RGB
+        d = pipeline.model.field.direction_encoding(directions)
+        h = torch.cat(
+            [
+                d,
+                base_mlp_out.view(-1, pipeline.model.field.geo_feat_dim)
+            ],
+            dim=-1,
+        )
+        rgbs = pipeline.model.field.mlp_head(h)
+
+        prob = torch.exp(log_prob)
+        prob[torch.isnan(prob)] = 0
+        prob = prob / prob.sum()
+        mask = prob > 0
+        print(prob.min())
+        print(prob.max())
+
+    # mask = density > 10.0
+    points = points[mask]
+    rgbs = rgbs[mask]
+
+    if use_bounding_box:
+        comp_l = torch.tensor(bounding_box_min, device=points.device)
+        comp_m = torch.tensor(bounding_box_max, device=points.device)
+        assert torch.all(
+            comp_l < comp_m
+        ), f"Bounding box min {bounding_box_min} must be smaller than max {bounding_box_max}"
+        mask = torch.all(torch.concat([points > comp_l, points < comp_m], dim=-1), dim=-1)
+        points = points[mask]
+        rgbs = rgbs[mask]
+
+
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points.double().cpu().numpy())
+    pcd.colors = o3d.utility.Vector3dVector(rgbs.double().cpu().numpy())
+
+    if remove_outliers:
+        CONSOLE.print("Cleaning Point Cloud")
+        pcd, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=std_ratio)
+        print("\033[A\033[A")
+        CONSOLE.print("[bold green]:white_check_mark: Cleaning Point Cloud")
 
     return pcd
 

@@ -219,6 +219,12 @@ class Trainer:
                 "optimizer": camera_optimizer_config.optimizer,
                 "scheduler": camera_optimizer_config.scheduler,
             }
+        # if self.pipeline.model.config.predict_view_likelihood:
+        #     for param_group in param_groups.values():
+        #         for param in param_group:
+        #             param.requires_grad = False
+        # for param in self.pipeline.model.field.nf_model.parameters():
+        #     param.requires_grad = True
         return Optimizers(optimizer_config, param_groups)
 
     def setup_optimizers_for_registration(self) -> Optimizers:
@@ -246,6 +252,7 @@ class Trainer:
 
     def train(self) -> None:
         """Train the model."""
+
         assert self.pipeline.datamanager.train_dataset is not None, "Missing DatsetInputs"
 
         self.pipeline.datamanager.train_dataparser_outputs.save_dataparser_transform(
@@ -322,6 +329,8 @@ class Trainer:
                         else:
                             # time the forward pass
                             loss, loss_dict, metrics_dict = self.train_iteration(step)
+
+
 
                         # training callbacks after the training iteration
                         for callback in self.callbacks:
@@ -532,19 +541,6 @@ class Trainer:
                     f.unlink()
 
 
-    def pre_train_iteration(self) -> TRAIN_INTERATION_OUTPUT:
-        """Run one iteration with a batch of inputs. Returns dictionary of model losses.
-
-        Args:
-        """
-        with torch.no_grad():
-            metrics_dict, images_dict = self.model.get_image_metrics_and_images(outputs, batch)
-            _, loss_dict, metrics_dict = self.pipeline.get_train_loss_dict(step=0, full_images=True)
-            loss = functools.reduce(torch.add, loss_dict.values())
-
-        # Merging loss and metrics dict into a single output.
-        return loss, loss_dict, metrics_dict
-
     @profiler.time_function
     def train_iteration(self, step: int) -> TRAIN_INTERATION_OUTPUT:
         """Run one iteration with a batch of inputs. Returns dictionary of model losses.
@@ -552,16 +548,39 @@ class Trainer:
         Args:
             step: Current training step.
         """
-
+        param_groups = self.pipeline.get_param_groups()
         self.optimizers.zero_grad_all()
         cpu_or_cuda_str: str = self.device.split(":")[0]
 
+        # if self.pipeline.model.config.predict_view_likelihood:
+        #     _, loss_dict, metrics_dict = self.pipeline.get_train_loss_dict(step=step)
+        #     loss = loss_dict["view_log_likelihood_loss"]
+        #     loss.backward()
+        #     self.optimizers.optimizer_step_all()
+        # else:
         with torch.autocast(device_type=cpu_or_cuda_str, enabled=self.mixed_precision):
             _, loss_dict, metrics_dict = self.pipeline.get_train_loss_dict(step=step)
+            if self.pipeline.model.config.predict_view_likelihood:
+                nf_loss = loss_dict.pop("view_log_likelihood_loss")
             loss = functools.reduce(torch.add, loss_dict.values())
-
-        self.grad_scaler.scale(loss).backward()  # type: ignore
-        self.optimizers.optimizer_scaler_step_all(self.grad_scaler)
+        if self.pipeline.model.config.predict_view_likelihood:
+            if ~(torch.isnan(nf_loss) | torch.isinf(nf_loss)) and step > 5000:
+                param_groups.pop("nf_field")
+                nf_loss.backward()  # type: ignore
+                self.optimizers.optimizer_step_all(exclude=param_groups.keys())
+                # self.grad_scaler.update()
+                self.optimizers.scheduler_step_all(step, exclude=param_groups.keys())
+                # self.optimizers.optimizers["nf_field"].zero_grad()
+            self.grad_scaler.scale(loss).backward()  # type: ignore
+            self.optimizers.optimizer_scaler_step_all(self.grad_scaler, exclude=["nf_field"])
+            self.grad_scaler.update()
+            self.optimizers.scheduler_step_all(step, exclude=["nf_field"])
+            loss_dict["view_log_likelihood_loss"] = nf_loss
+        else:
+            self.grad_scaler.scale(loss).backward()  # type: ignore
+            self.optimizers.optimizer_scaler_step_all(self.grad_scaler)
+            self.grad_scaler.update()
+            self.optimizers.scheduler_step_all(step)
 
         if self.config.log_gradients:
             total_grad = 0
@@ -574,8 +593,6 @@ class Trainer:
 
             metrics_dict["Gradients/Total"] = total_grad
 
-        self.grad_scaler.update()
-        self.optimizers.scheduler_step_all(step)
 
         # Merging loss and metrics dict into a single output.
         return loss, loss_dict, metrics_dict

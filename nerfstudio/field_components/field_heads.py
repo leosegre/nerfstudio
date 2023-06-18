@@ -41,6 +41,8 @@ class FieldHeadNames(Enum):
     ALPHA = "alpha"
     GRADIENT = "gradient"
     DIRECTIONS = "directions"
+    VIEW_LIKELIHOOD = "view_likelihood"
+    VIEW_LOG_LIKELIHOOD = "view_log_likelihood"
 
 
 class FieldHead(FieldComponent):
@@ -221,3 +223,14 @@ class DirectionsFieldHead(FieldHead):
         # out_tensor = super().forward(in_tensor)
         # out_tensor = torch.nn.functional.normalize(out_tensor, dim=-1)
         # return out_tensor
+
+# class ViewLikelihoodFieldHead(FieldHead):
+#     """directions output.
+#
+#     Args:
+#         in_dim: input dimension. If not defined in constructor, it must be set later.
+#         activation: output head activation
+#     """
+#
+#     def __init__(self, in_dim: Optional[int] = None, activation: Optional[nn.Module] = nn.Sigmoid()) -> None:
+#         super().__init__(in_dim=in_dim, out_dim=1, field_head_name=FieldHeadNames.VIEW_LIKELIHOOD, activation=activation)

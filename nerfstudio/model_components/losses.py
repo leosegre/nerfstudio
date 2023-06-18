@@ -119,6 +119,22 @@ def interlevel_loss(weights_list, ray_samples_list):
         loss_interlevel += torch.mean(lossfun_outer(c, w, cp, wp))
     return loss_interlevel
 
+def regularization_loss_mip360(weights_list, ray_samples_list):
+    """Calculates the rgularization loss in the MipNeRF-360 paper.
+    """
+    s = ray_samples_to_sdist(ray_samples_list[-1]).detach()
+    w = weights_list[-1][..., 0]
+    loss_interlevel = 0.0
+
+    w_i_w_j = torch.einsum('i,j->ij')
+    for w, s in zip(ray_samples_list[:-1], weights_list[:-1]):
+        sdist = ray_samples_to_sdist(ray_samples)
+        cp = sdist  # (num_rays, num_samples + 1)
+        wp = weights[..., 0]  # (num_rays, num_samples)
+        loss_interlevel += torch.mean(lossfun_outer(c, w, cp, wp))
+    return loss_interlevel
+
+
 
 # Verified
 def lossfun_distortion(t, w):
@@ -210,12 +226,23 @@ def pred_normal_loss(
 
 def uncertainty_loss(
     weights: TensorType["bs":..., "num_samples", 1],
-    riddle: TensorType["bs":..., "num_samples", 3],
-    pred_riddle: TensorType["bs":..., "num_samples", 3],
+    riddle: TensorType["bs":..., "num_samples", 1],
+    pred_riddle: TensorType["bs":..., "num_samples", 1],
 ):
     """Loss between normals calculated from density and normals from prediction network."""
-    return (weights[..., 0] * (riddle - pred_riddle).abs().sum(dim=-1))
+    return (weights[..., 0] * (riddle - pred_riddle).abs()).sum(dim=-1)
 
+def view_likelihood_loss(
+    weights: TensorType["bs":..., "num_samples", 1],
+    view_likelihood: TensorType["bs":..., "num_samples", 1],
+):
+    """Loss between normals calculated from density and normals from prediction network."""
+    # import ipdb; ipdb.set_trace()
+    # weights_zeroed = weights.squeeze()
+    # weights_zeroed[weights.squeeze() < 0.0001] = 0
+    return -torch.sum(weights.squeeze() * view_likelihood.squeeze(), dim=-1)
+    # return -torch.sum(weights.squeeze() * view_likelihood.squeeze(), dim=-1)
+    # return (weights[..., 0] * -view_likelihood).sum(dim=-1)
 
 def ds_nerf_depth_loss(
     weights: TensorType[..., "num_samples", 1],

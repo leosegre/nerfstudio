@@ -25,6 +25,7 @@ from nerfstudio.exporter import texture_utils, tsdf_utils
 from nerfstudio.exporter.exporter_utils import (
     collect_camera_poses,
     generate_point_cloud,
+    generate_point_cloud_nf,
     get_mesh_from_filename,
 )
 from nerfstudio.exporter.marching_cubes import (
@@ -106,7 +107,54 @@ class ExportPointCloud(Exporter):
         o3d.t.io.write_point_cloud(str(self.output_dir / "point_cloud.ply"), tpcd)
         print("\033[A\033[A")
         CONSOLE.print("[bold green]:white_check_mark: Saving Point Cloud")
+@dataclass
+class ExportPointCloudNF(Exporter):
+    """Export NeRF as a point cloud from Normalizing flow."""
 
+    num_points: int = 1000000
+    """Number of points to generate. May result in less if outlier removal is used."""
+    remove_outliers: bool = True
+    """Remove outliers from the point cloud."""
+    use_bounding_box: bool = True
+    """Only query points within the bounding box"""
+    bounding_box_min: Tuple[float, float, float] = (-1, -1, -1)
+    """Minimum of the bounding box, used if use_bounding_box is True."""
+    bounding_box_max: Tuple[float, float, float] = (1, 1, 1)
+    """Maximum of the bounding box, used if use_bounding_box is True."""
+    std_ratio: float = 10.0
+    """Threshold based on STD of the average distances across the point cloud to remove outliers."""
+
+    def main(self) -> None:
+        """Export point cloud."""
+
+        if not self.output_dir.exists():
+            self.output_dir.mkdir(parents=True)
+
+        _, pipeline, _, _ = eval_setup(self.load_config)
+
+        # # Increase the batchsize to speed up the evaluation.
+        # pipeline.datamanager.train_pixel_sampler.num_rays_per_batch = self.num_rays_per_batch
+
+        pcd = generate_point_cloud_nf(
+            pipeline=pipeline,
+            num_points=self.num_points,
+            remove_outliers=self.remove_outliers,
+            use_bounding_box=self.use_bounding_box,
+            bounding_box_min=self.bounding_box_min,
+            bounding_box_max=self.bounding_box_max,
+            std_ratio=self.std_ratio,
+        )
+        torch.cuda.empty_cache()
+
+        CONSOLE.print(f"[bold green]:white_check_mark: Generated {pcd}")
+        CONSOLE.print("Saving Point Cloud...")
+        tpcd = o3d.t.geometry.PointCloud.from_legacy(pcd)
+        # The legacy PLY writer converts colors to UInt8,
+        # let us do the same to save space.
+        tpcd.point.colors = (tpcd.point.colors * 255).to(o3d.core.Dtype.UInt8)
+        o3d.t.io.write_point_cloud(str(self.output_dir / "point_cloud.ply"), tpcd)
+        print("\033[A\033[A")
+        CONSOLE.print("[bold green]:white_check_mark: Saving Point Cloud")
 
 @dataclass
 class ExportTSDFMesh(Exporter):
@@ -411,6 +459,7 @@ class ExportCameraPoses(Exporter):
 Commands = tyro.conf.FlagConversionOff[
     Union[
         Annotated[ExportPointCloud, tyro.conf.subcommand(name="pointcloud")],
+        Annotated[ExportPointCloudNF, tyro.conf.subcommand(name="nf-pointcloud")],
         Annotated[ExportTSDFMesh, tyro.conf.subcommand(name="tsdf")],
         Annotated[ExportPoissonMesh, tyro.conf.subcommand(name="poisson")],
         Annotated[ExportMarchingCubesMesh, tyro.conf.subcommand(name="marching-cubes")],
