@@ -78,6 +78,8 @@ class TrainerConfig(ExperimentConfig):
     """Maximum number of iterations to run."""
     pretrain_iters: int = 0
     """number of pretrain iterations for registration."""
+    nf_first_iter: int = 10000
+    """number of pretrain iterations for registration."""
     mixed_precision: bool = False
     """Whether or not to use mixed precision for training."""
     use_grad_scaler: bool = False
@@ -137,6 +139,8 @@ class Trainer:
         self._start_step: int = 0
         # optimizers
         self.grad_scaler = GradScaler(enabled=self.use_grad_scaler)
+        self.nf_grad_scaler = GradScaler(enabled=self.use_grad_scaler)
+
 
         self.base_dir: Path = config.get_base_dir()
         # directory to save checkpoints
@@ -145,6 +149,7 @@ class Trainer:
 
         self.viewer_state = None
         self.pretrain_iters = config.pretrain_iters
+        self.nf_first_iter = config.nf_first_iter
 
     def setup(self, test_mode: Literal["test", "val", "inference"] = "val") -> None:
         """Setup the Trainer by calling other setup functions.
@@ -189,6 +194,7 @@ class Trainer:
             TrainingCallbackAttributes(
                 optimizers=self.optimizers,  # type: ignore
                 grad_scaler=self.grad_scaler,  # type: ignore
+                nf_grad_scaler=self.nf_grad_scaler,  # type: ignore
                 pipeline=self.pipeline,  # type: ignore
             )
         )
@@ -506,6 +512,7 @@ class Trainer:
             self.pipeline.load_pipeline(loaded_state["pipeline"], loaded_state["step"])
             self.optimizers.load_optimizers(loaded_state["optimizers"])
             self.grad_scaler.load_state_dict(loaded_state["scalers"])
+            self.nf_grad_scaler.load_state_dict(loaded_state["nf_scalers"])
             CONSOLE.print(f"done loading checkpoint from {load_path}")
         else:
             CONSOLE.print("No checkpoints to load, training from scratch")
@@ -530,6 +537,7 @@ class Trainer:
                 else self.pipeline.state_dict(),
                 "optimizers": {k: v.state_dict() for (k, v) in self.optimizers.optimizers.items()},
                 "scalers": self.grad_scaler.state_dict(),
+                "nf_scalers": self.nf_grad_scaler.state_dict(),
             },
             ckpt_path,
         )
@@ -563,12 +571,15 @@ class Trainer:
             if self.pipeline.model.config.predict_view_likelihood:
                 nf_loss = loss_dict.pop("view_log_likelihood_loss")
             loss = functools.reduce(torch.add, loss_dict.values())
-        if self.pipeline.model.config.predict_view_likelihood:
-            if ~(torch.isnan(nf_loss) | torch.isinf(nf_loss)) and step > 5000:
-                param_groups.pop("nf_field")
-                nf_loss.backward()  # type: ignore
-                self.optimizers.optimizer_step_all(exclude=param_groups.keys())
-                # self.grad_scaler.update()
+        if self.pipeline.model.config.predict_view_likelihood and not self.pipeline.config.registration:
+            if ~(torch.isnan(nf_loss) | torch.isinf(nf_loss) | torch.numel(nf_loss)==0) and step >= self.nf_first_iter:
+                nf_field_params = param_groups.pop("nf_field")
+                self.nf_grad_scaler.scale(nf_loss).backward()  # type: ignore
+                self.nf_grad_scaler.unscale_(self.optimizers.optimizers["nf_field"])
+                torch.nn.utils.clip_grad_norm_(nf_field_params, max_norm=5000.0)
+                # self.optimizers.optimizer_step_all(exclude=param_groups.keys())
+                self.optimizers.optimizer_scaler_step_all(self.nf_grad_scaler, exclude=param_groups.keys())
+                self.nf_grad_scaler.update()
                 self.optimizers.scheduler_step_all(step, exclude=param_groups.keys())
                 # self.optimizers.optimizers["nf_field"].zero_grad()
             self.grad_scaler.scale(loss).backward()  # type: ignore
@@ -577,6 +588,14 @@ class Trainer:
             self.optimizers.scheduler_step_all(step, exclude=["nf_field"])
             loss_dict["view_log_likelihood_loss"] = nf_loss
         else:
+            # if True:
+            #     self.nf_grad_scaler.scale(nf_loss).backward()
+            #     # self.nf_grad_scaler.unscale_(self.optimizers)
+            #     self.optimizers.optimizer_scaler_step_all(self.nf_grad_scaler)
+            #     self.nf_grad_scaler.update()
+            #     self.optimizers.scheduler_step_all(step)
+            #     loss_dict["view_log_likelihood_loss"] = nf_loss
+            # else:
             self.grad_scaler.scale(loss).backward()  # type: ignore
             self.optimizers.optimizer_scaler_step_all(self.grad_scaler)
             self.grad_scaler.update()

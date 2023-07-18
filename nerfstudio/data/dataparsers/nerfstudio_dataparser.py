@@ -269,6 +269,7 @@ class Nerfstudio(DataParser):
         poses = torch.from_numpy(np.array(poses).astype(np.float32))
         if self.config.load_registration:
             transform_matrix = torch.tensor(meta["transform"])
+            # transform_matrix = torch.eye(4)
         elif self.config.registration_data is not None:
             transform_matrix = torch.tensor(registration_data["transform"])
             poses = transform_matrix @ poses
@@ -292,6 +293,7 @@ class Nerfstudio(DataParser):
             scale_factor = 1.0
 
         poses[:, :3, 3] *= scale_factor
+
 
         if self.config.registration:
             if self.config.load_registration:
@@ -401,7 +403,13 @@ class Nerfstudio(DataParser):
                 "depth_unit_scale_factor": self.config.depth_unit_scale_factor,
                 "registration_matrix": registration_matrix if self.config.registration else None,
                 "registration_rot_euler": registration_rot_euler if self.config.registration else None,
-                "registration_translation": registration_translation if self.config.registration else None
+                "registration_translation": registration_translation if self.config.registration else None,
+                "height": height if self.config.registration else None,
+                "width": width if self.config.registration else None,
+                "fx": fx if self.config.registration else None,
+                "fy": fy if self.config.registration else None,
+                "cx": cx if self.config.registration else None,
+                "cy": cy if self.config.registration else None
             },
         )
         return dataparser_outputs

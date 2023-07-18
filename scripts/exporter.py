@@ -15,6 +15,7 @@ from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import open3d as o3d
+import pathlib
 import torch
 import tyro
 from rich.console import Console
@@ -26,13 +27,23 @@ from nerfstudio.exporter.exporter_utils import (
     collect_camera_poses,
     generate_point_cloud,
     generate_point_cloud_nf,
+    generate_cameras_from_nf,
     get_mesh_from_filename,
+    render_trajectory,
 )
 from nerfstudio.exporter.marching_cubes import (
     generate_mesh_with_multires_marching_cubes,
 )
 from nerfstudio.pipelines.base_pipeline import Pipeline, VanillaPipeline
 from nerfstudio.utils.eval_utils import eval_setup
+
+from nerfstudio.cameras.cameras import CAMERA_MODEL_TO_TYPE, Cameras, CameraType
+import cv2 as cv
+
+from nerfstudio.utils.io import load_from_json
+from nerfstudio.utils import colormaps
+
+
 
 CONSOLE = Console(width=120)
 
@@ -155,6 +166,126 @@ class ExportPointCloudNF(Exporter):
         o3d.t.io.write_point_cloud(str(self.output_dir / "point_cloud.ply"), tpcd)
         print("\033[A\033[A")
         CONSOLE.print("[bold green]:white_check_mark: Saving Point Cloud")
+
+@dataclass
+class ExportTransformsNF(Exporter):
+    """Export transform matrices from Normalizing flow."""
+
+    num_points: int = 10
+    """Number of points to generate. May result in less if outlier removal is used."""
+    depth: float = 0.5
+    """depth: The depth of the camera."""
+    downscale_factor: int = 1
+    depth_output_name: str = "depth"
+    rgb_output_name: str = "rgb"
+    mask_output_name: str = "mask"
+    view_likelihood_output_name: str = "view_log_likelihood"
+
+
+    def main(self) -> None:
+        """Export transform matrices."""
+
+        if not self.output_dir.exists():
+            self.output_dir.mkdir(parents=True)
+
+        _, pipeline, _, _ = eval_setup(self.load_config)
+
+        device = pipeline.device
+
+        # # Increase the batchsize to speed up the evaluation.
+        # pipeline.datamanager.train_pixel_sampler.num_rays_per_batch = self.num_rays_per_batch
+        dataparser_transforms = load_from_json(pathlib.Path(os.path.join(os.path.dirname(self.load_config), "dataparser_transforms.json")))
+
+        transforms, c2w = generate_cameras_from_nf(
+            pipeline=pipeline,
+            dataparser_transforms=dataparser_transforms,
+            num_points=self.num_points,
+            depth=self.depth,
+        )
+        torch.cuda.empty_cache()
+
+
+        distortion_params = torch.zeros((self.num_points, 6))
+        cameras = Cameras(
+            fx=transforms["fl_x"],
+            fy=transforms["fl_y"],
+            cx=transforms["cx"],
+            cy=transforms["cy"],
+            distortion_params=distortion_params,
+            height=transforms["h"],
+            width=transforms["w"],
+            camera_to_worlds=c2w[:, :3, :4],
+            camera_type=CameraType.PERSPECTIVE,
+        )
+
+        color_images, depth_images, view_likelihood_images = render_trajectory(
+            pipeline,
+            cameras,
+            rgb_output_name=self.rgb_output_name,
+            depth_output_name=self.depth_output_name,
+            view_likelihood_output_name=self.view_likelihood_output_name,
+            rendered_resolution_scaling_factor=1.0 / self.downscale_factor,
+            disable_distortion=True,
+        )
+        color_images = 255 * torch.tensor(np.array(color_images), device=device).cpu().numpy()  # shape (N, 3, H, W)
+        depth_images = 255 * torch.tensor(np.array(depth_images), device=device).cpu().numpy()  # shape (N, 1, H, W)
+        view_likelihood_images = torch.tensor(np.array(view_likelihood_images), device=device)  # shape (N, 1, H, W)
+
+        images_dir = "images"
+        if self.downscale_factor > 1:
+            images_dir = images_dir + "_" + str(self.downscale_factor)
+        images_dir = os.path.join(self.output_dir, images_dir)
+        if not os.path.exists(images_dir):
+            os.mkdir(images_dir)
+
+        masks_dir = "masks"
+        if self.downscale_factor > 1:
+            masks_dir = masks_dir + "_" + str(self.downscale_factor)
+        masks_dir = os.path.join(self.output_dir, masks_dir)
+        if not os.path.exists(masks_dir):
+            os.mkdir(masks_dir)
+
+
+        for i in reversed(range(self.num_points)):
+            # Normalize
+            colormap_max = 1
+            colormap_min = 0
+            output = view_likelihood_images[i]
+            output = output * (colormap_max - colormap_min) + colormap_min
+            output = torch.nan_to_num(output)
+            output_colormap = torch.clip(output, 0, 1)
+            output_colormap = output_colormap.cpu().numpy()
+            output_colormap = (output_colormap * 255).astype(np.uint8)
+            output_colormap = cv.applyColorMap(output_colormap, cv.COLORMAP_TURBO)
+
+            threshold = 0.5
+            mask_output = (255 * (output >= threshold)).cpu().numpy()
+
+            # if (mask_output.sum() / (255 * mask_output.size)) <= 0.5:
+            #     transforms["frames"].pop(i)
+
+            cv.imwrite(f"{masks_dir}/{self.mask_output_name}_{i}.png", mask_output)
+            cv.imwrite(f"{images_dir}/{self.view_likelihood_output_name}_{i}.png", output_colormap)
+
+            color_images[i] = cv.cvtColor(color_images[i], cv.COLOR_BGR2RGB)
+            cv.imwrite(f"{images_dir}/{self.rgb_output_name}_{i}.png", color_images[i])
+            cv.imwrite(f"{images_dir}/{self.depth_output_name}_{i}.png", depth_images[i])
+
+
+
+        for file_name, frames in [("transforms.json", transforms)]:
+            if len(frames) == 0:
+                CONSOLE.print(f"[bold yellow]No frames found for {file_name}. Skipping.")
+                continue
+
+            output_file_path = os.path.join(self.output_dir, file_name)
+
+            with open(output_file_path, "w", encoding="UTF-8") as f:
+                json.dump(frames, f, indent=4)
+
+            CONSOLE.print(f"[bold green]:white_check_mark: Saved poses to {output_file_path}")
+
+
 
 @dataclass
 class ExportTSDFMesh(Exporter):
@@ -464,6 +595,7 @@ Commands = tyro.conf.FlagConversionOff[
         Annotated[ExportPoissonMesh, tyro.conf.subcommand(name="poisson")],
         Annotated[ExportMarchingCubesMesh, tyro.conf.subcommand(name="marching-cubes")],
         Annotated[ExportCameraPoses, tyro.conf.subcommand(name="cameras")],
+        Annotated[ExportTransformsNF, tyro.conf.subcommand(name="nf-cameras")],
     ]
 ]
 

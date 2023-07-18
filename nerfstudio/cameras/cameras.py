@@ -698,6 +698,7 @@ class Cameras(TensorDataclass):
         rotation = c2w[..., :3, :3]  # (..., 3, 3)
         assert rotation.shape == num_rays_shape + (3, 3)
 
+        # import ipdb; ipdb.set_trace()
         directions_stack = torch.sum(
             directions_stack[..., None, :] * rotation, dim=-1
         )  # (..., 1, 3) * (..., 3, 3) -> (..., 3)

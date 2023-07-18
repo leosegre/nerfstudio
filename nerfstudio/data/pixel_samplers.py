@@ -84,7 +84,7 @@ class PixelSampler:  # pylint: disable=too-few-public-methods
             num_rays_per_batch: number of rays to sample per batch
             keep_full_image: whether or not to include a reference to the full image in returned batch
         """
-
+        # import ipdb; ipdb.set_trace()
         device = batch["image"].device
         num_images, image_height, image_width, _ = batch["image"].shape
 
@@ -92,6 +92,7 @@ class PixelSampler:  # pylint: disable=too-few-public-methods
             indices = self.sample_method(
                 num_rays_per_batch, num_images, image_height, image_width, mask=batch["mask"], device=device
             )
+            indices = indices[:, :3]
         else:
             indices = self.sample_method(num_rays_per_batch, num_images, image_height, image_width, device=device)
 

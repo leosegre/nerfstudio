@@ -45,7 +45,11 @@ from nerfstudio.utils.rich_utils import ItersPerSecColumn
 
 from nerfstudio.fields.base_field import shift_directions_for_tcnn
 from nerfstudio.field_components.activations import trunc_exp
+from ..PointFlow.utils import truncated_normal, reduce_tensor, standard_normal_logprob
 
+from scipy.spatial.transform import Rotation
+import torch.nn.functional as F
+import torchgeometry as tgm
 
 CONSOLE = Console(width=120)
 
@@ -211,6 +215,18 @@ def generate_point_cloud(
 
     return pcd
 
+def sample_gaussian(size, truncate_std=None, gpu=None):
+    y = torch.randn(*size).float()
+    y = y if gpu is None else y.cuda(gpu)
+    if truncate_std is not None:
+        truncated_normal(y, mean=0, std=1, trunc_std=truncate_std)
+    return y
+
+def sample(point_cnf, batch_size, num_points, truncate_std=None, truncate_std_latent=None, gpu=None):
+    y = sample_gaussian((batch_size, num_points, 6), truncate_std, gpu=gpu)
+    x = point_cnf(y, None, reverse=True).view(*y.size())
+    return x
+
 def generate_point_cloud_nf(
     pipeline: Pipeline,
     num_points: int = 1000000,
@@ -237,10 +253,17 @@ def generate_point_cloud_nf(
 
     # pylint: disable=too-many-statements
     with torch.no_grad():
-        d_cat_x, log_prob = pipeline.model.nf_field.nf_model.sample(num_points)
+        d_cat_x, log_prob = pipeline.model.nf_field.nf_model.sample(num_points, sample_scale=16)
+        # d_cat_x = sample(pipeline.model.nf_field.nf_model, 1, num_points, truncate_std=1, gpu=0).squeeze()
+        print(d_cat_x.shape)
         points = d_cat_x[..., :3]
-        directions = d_cat_x[..., 3:]
+        directions = shift_directions_for_tcnn(d_cat_x[..., 3:])
 
+
+        # points = 4 * (torch.rand((num_points, 3)) - 0.5)
+        # directions = 2 * (torch.rand((num_points, 3)) - 0.5)
+
+        print(points)
 
 
         # Get density
@@ -262,16 +285,21 @@ def generate_point_cloud_nf(
         )
         rgbs = pipeline.model.field.mlp_head(h)
 
-        prob = torch.exp(log_prob)
-        prob[torch.isnan(prob)] = 0
-        prob = prob / prob.sum()
-        mask = prob > 0
-        print(prob.min())
-        print(prob.max())
+        # rgbs = torch.ones_like(rgbs)
+        # rgbs[..., 0] = 0
+        # rgbs[..., 2] = 0
 
-    # mask = density > 10.0
+        log_prob[torch.isnan(log_prob)] = 0
+        sorted, indices = torch.sort(log_prob)
+        mask = indices[-10:]
+        # mask = log_prob > 8
+        # print(log_prob.min())
+        # print(log_prob.max())
+
+    # mask = (density > 10.0)
     points = points[mask]
     rgbs = rgbs[mask]
+
 
     if use_bounding_box:
         comp_l = torch.tensor(bounding_box_min, device=points.device)
@@ -296,12 +324,135 @@ def generate_point_cloud_nf(
 
     return pcd
 
+def generate_cameras_from_nf(
+    pipeline: Pipeline,
+    dataparser_transforms: dict,
+    num_points: int = 10,
+    sample_ratio = 10,
+    depth: float = 0.5,
+
+) -> o3d.geometry.PointCloud:
+    """Generate a point cloud from a nerf.
+
+    Args:
+        pipeline: Pipeline to evaluate with.
+        num_points: Number of points to generate. May result in less if outlier removal is used.
+        depth: The depth of the camera.
+
+    Returns:
+        List of transform matrices.
+    """
+
+    points_to_sample = num_points * sample_ratio
+
+    # pylint: disable=too-many-statements
+    with torch.no_grad():
+        d_cat_x, log_prob = pipeline.model.nf_field.nf_model.sample(points_to_sample, sample_scale=16)
+        # d_cat_x = sample(pipeline.model.nf_field.nf_model, 1, num_points, truncate_std=1, gpu=0).squeeze()
+        print(d_cat_x.shape)
+
+        log_prob[torch.isnan(log_prob)] = -torch.inf
+        sorted, indices = torch.sort(log_prob)
+        mask = indices[-num_points:]
+        d_cat_x = d_cat_x[mask]
+
+        points = d_cat_x[..., :3]
+        # points[0] = torch.zeros(3)
+        directions = d_cat_x[..., 3:]
+
+        print("points", points)
+        print("directions", directions)
+
+    c2w = torch.zeros((num_points, 4, 4))
+    origins = points - directions * depth
+    # origins = torch.cat([origins, points], axis=0)
+    # directions = torch.cat([directions, directions], axis=0)
+    c2w[..., :3, 3] = origins  # (..., 3)
+
+    # angles = torch.acos(directions[:, 2])
+    # axes = torch.stack([-directions[:, 1], directions[:, 0], torch.zeros_like(directions[:, 0])], dim=1)
+    # norms = torch.norm(axes, p=2, dim=1, keepdim=True)
+    # normalized_axes = axes / norms
+
+    # quaternions = torch.cat([torch.cos(angles / 2).unsqueeze(1), normalized_axes * torch.sin(angles / 2).unsqueeze(1)], dim=1)
+    # r = Rotation.from_quat(quaternions.cpu().numpy())
+
+    # r = Rotation.from_rotvec(directions.cpu().numpy())
+    # rotation = torch.from_numpy(r.as_matrix())
+
+    def align_vectors(a, b):
+        b = b / np.linalg.norm(b)  # normalize a
+        a = a / np.linalg.norm(a)  # normalize b
+        v = np.cross(a, b)
+        # s = np.linalg.norm(v)
+        c = np.dot(a, b)
+
+        v1, v2, v3 = v
+        h = 1 / (1 + c)
+
+        Vmat = np.array([[0, -v3, v2],
+                         [v3, 0, -v1],
+                         [-v2, v1, 0]])
+
+        R = np.eye(3, dtype=np.float64) + Vmat + (Vmat.dot(Vmat) * h)
+        return R
+
+    directions = directions.cpu().numpy()
+
+    for i in range(num_points):
+        c2w[i, :3, :3] = torch.from_numpy(align_vectors(np.array([0, 0, -1]), directions[i]))
+
+    # z = torch.tensor(np.array([0, 0, -1])).repeat(num_points, 1).cpu().numpy()
+    # print(z.shape)
+    # r = Rotation.align_vectors(z, directions.cpu().numpy())
+    # rotation = torch.from_numpy(r[0].as_matrix())
+
+    # rotation = torch.diag(torch.tensor([1, 1, 1]))
+    # c2w[..., :3, :3] = rotation  # (..., 3, 3)
+    c2w[..., 3, 3] = 1
+    c2w_list = c2w.tolist()
+
+    ## Make full transform file with fixed parameters
+    transforms = {}
+    transforms["w"] = dataparser_transforms["width"]
+    transforms["h"] = dataparser_transforms["height"]
+    transforms["fl_x"] = dataparser_transforms["fx"]
+    transforms["fl_y"] = dataparser_transforms["fy"]
+    transforms["cx"] = dataparser_transforms["cx"]
+    transforms["cy"] = dataparser_transforms["cy"]
+    transforms["k1"] = 0
+    transforms["k2"] = 0
+    transforms["p1"] = 0
+    transforms["p2"] = 0
+
+    frames = []
+    for i, camera in enumerate(c2w_list):
+        frame = {}
+        frame["file_path"] = f"images/rgb_{i}.png"
+        frame["mask_path"] = f"images/mask_{i}.png"
+        # transform_matrix = np.array(eval(camera["matrix"])).reshape((4, 4)).T
+        frame["transform_matrix"] = camera
+        frames.append(frame)
+
+    transforms["frames"] = frames
+
+    # train_dataparser_outputs = pipeline.datamanager.train_dataparser_outputs.as_dict()
+
+    transforms["transform"] = dataparser_transforms["transform"]
+    transforms["registration_matrix"] = dataparser_transforms["registration_matrix"]
+    transforms["registration_rot_euler"] = dataparser_transforms["registration_rot_euler"]
+    transforms["registration_translation"] = dataparser_transforms["registration_translation"]
+
+
+    return transforms, c2w
+
 
 def render_trajectory(
     pipeline: Pipeline,
     cameras: Cameras,
     rgb_output_name: str,
     depth_output_name: str,
+    view_likelihood_output_name: str,
     rendered_resolution_scaling_factor: float = 1.0,
     disable_distortion: bool = False,
 ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
@@ -320,6 +471,7 @@ def render_trajectory(
     """
     images = []
     depths = []
+    view_likelihood = []
     cameras.rescale_output_resolution(rendered_resolution_scaling_factor)
 
     progress = Progress(
@@ -346,9 +498,16 @@ def render_trajectory(
                 CONSOLE.print(f"Could not find {depth_output_name} in the model outputs", justify="center")
                 CONSOLE.print(f"Please set --depth_output_name to one of: {outputs.keys()}", justify="center")
                 sys.exit(1)
+            if view_likelihood_output_name not in outputs:
+                CONSOLE.rule("Error", style="red")
+                CONSOLE.print(f"Could not find {view_likelihood_output_name} in the model outputs", justify="center")
+                CONSOLE.print(f"Please set --view_likelihood_output_name to one of: {outputs.keys()}", justify="center")
+                sys.exit(1)
+
             images.append(outputs[rgb_output_name].cpu().numpy())
             depths.append(outputs[depth_output_name].cpu().numpy())
-    return images, depths
+            view_likelihood.append(outputs[view_likelihood_output_name].cpu().numpy())
+    return images, depths, view_likelihood
 
 
 def collect_camera_poses_for_dataset(dataset: Optional[InputDataset]) -> List[Dict[str, Any]]:

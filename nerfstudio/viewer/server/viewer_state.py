@@ -305,11 +305,13 @@ class ViewerState:
             self.viser_server.add_dataset_image(idx=f"{idx:06d}", json=camera_json)
             if registration:
                 registration_matrix = dataset.metadata["registration_matrix"]
-                camera_to_world_tensor = torch.cat((torch.from_numpy(np.array(camera_json["camera_to_world"], dtype=np.float32)), \
-                                                    torch.tensor([[0, 0, 0, 1]], dtype=torch.float32)), 0)
                 self.viser_server.add_dataset_image(idx=f"{idx:06d}_unreg", json=camera_json)
-                camera_json["camera_to_world"] = pose_utils.multiply(registration_matrix, camera_to_world_tensor).tolist()
-                self.viser_server.add_dataset_image(idx=f"{idx:06d}_original", json=camera_json)
+                original_camera_json = camera_json.copy()
+                camera_to_world_tensor = torch.cat((torch.from_numpy(np.array(original_camera_json["camera_to_world"], dtype=np.float32)), \
+                                                    torch.tensor([[0, 0, 0, 1]], dtype=torch.float32)), 0)
+
+                original_camera_json["camera_to_world"] = pose_utils.multiply(registration_matrix, camera_to_world_tensor).tolist()
+                self.viser_server.add_dataset_image(idx=f"{idx:06d}_original", json=original_camera_json)
 
 
         # draw the scene box (i.e., the bounding box)

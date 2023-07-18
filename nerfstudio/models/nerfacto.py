@@ -330,17 +330,28 @@ class NerfactoModel(Model):
             outputs["pred_directions"] = pred_directions
 
         if self.config.predict_view_likelihood:
-            cloned_weights = weights.detach()
-            argmax_weights = cloned_weights.max(axis=1)[1].squeeze()
-            # print(argmax_weights.shape)
-            # print(ray_samples[np.arange(len(ray_samples)), argmax_weights].shape)
-            nf_field_outputs = self.nf_field.get_outputs(ray_samples[np.arange(len(ray_samples)), argmax_weights])
-            # print(cloned_weights.shape)
-            # print(nf_field_outputs[FieldHeadNames.VIEW_LOG_LIKELIHOOD].shape)
-            # print(cloned_weights.argmax(axis=1).shape)
+            # cpu_or_cuda_str: str = str(self.device).split(":")[0]
+            # with torch.autocast(device_type=cpu_or_cuda_str, enabled=False):
+
+            # cloned_weights = weights.detach()
+            # argmax_weights = cloned_weights.max(axis=1)[1].squeeze()
+            # nf_field_outputs = self.nf_field.get_outputs(ray_samples[np.arange(len(ray_samples)), argmax_weights])
+            # outputs["view_log_likelihood"] = nf_field_outputs[FieldHeadNames.VIEW_LOG_LIKELIHOOD]
+
+            points = ray_bundle.origins + ray_bundle.directions * depth
+            nf_field_outputs = self.nf_field.get_outputs(points, ray_bundle.directions)
             outputs["view_log_likelihood"] = nf_field_outputs[FieldHeadNames.VIEW_LOG_LIKELIHOOD]
+
+
+            # nf_field_outputs = self.nf_field.get_outputs(ray_samples)
+            # outputs["view_log_likelihood"] = self.renderer_uncertainty(betas=nf_field_outputs[FieldHeadNames.VIEW_LOG_LIKELIHOOD], weights=torch.clip((cloned_weights-0.1), -1/48, 1))
+            # if outputs["view_log_likelihood"].isnan().any():
+            #     import ipdb; ipdb.set_trace()
+
+            # nan_mask = ~outputs["view_log_likelihood"].isnan()
+            # outputs["view_log_likelihood"] = outputs["view_log_likelihood"][nan_mask]
+
             # outputs["view_log_likelihood"][outputs["view_log_likelihood"].isnan()] = 0
-            # outputs["view_log_likelihood"] = self.renderer_uncertainty(betas=nf_field_outputs[FieldHeadNames.VIEW_LOG_LIKELIHOOD], weights=torch.clip((cloned_weights-0.1), 1/48, 1))
 
 
 
@@ -443,6 +454,8 @@ class NerfactoModel(Model):
                     outputs["rendered_pred_directions_loss"]
                 )
             if self.config.predict_view_likelihood:
+                # cpu_or_cuda_str: str = str(self.device).split(":")[0]
+                # with torch.autocast(device_type=cpu_or_cuda_str, enabled=False):
                 loss_dict["view_log_likelihood_loss"] = self.config.view_likelihood_loss_mult * -torch.mean(
                     outputs["view_log_likelihood"]
                 )

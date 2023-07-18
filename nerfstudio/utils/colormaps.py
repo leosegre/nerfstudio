@@ -33,7 +33,7 @@ def apply_colormap(image: TensorType["bs":..., 1], cmap="viridis") -> TensorType
     Returns:
         TensorType: Colored image with colors in [0, 1]
     """
-
+    # import ipdb; ipdb.set_trace();
     colormap = cm.get_cmap(cmap)
     colormap = torch.tensor(colormap.colors).to(image.device)  # type: ignore
     image = torch.nan_to_num(image, 0)
