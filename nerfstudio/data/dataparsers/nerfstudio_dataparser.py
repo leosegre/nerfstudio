@@ -85,6 +85,8 @@ class NerfstudioDataParserConfig(DataParserConfig):
     """dataset from blender."""
     registration_data: Path = None
     """Directory or explicit json file path specifying location of registration data."""
+    inerf: bool = False
+    """load a aframe and transform it."""
 
 
 
@@ -97,6 +99,8 @@ class Nerfstudio(DataParser):
 
     def _generate_dataparser_outputs(self, split="train"):
         # pylint: disable=too-many-statements
+
+        # import ipdb; ipdb.set_trace()
 
         assert self.config.data.exists(), f"Data directory {self.config.data} does not exist."
         if self.config.registration_data is not None:
@@ -267,12 +271,12 @@ class Nerfstudio(DataParser):
             orientation_method = self.config.orientation_method
 
         poses = torch.from_numpy(np.array(poses).astype(np.float32))
-        if self.config.load_registration:
-            transform_matrix = torch.tensor(meta["transform"])
-            # transform_matrix = torch.eye(4)
-        elif self.config.registration_data is not None:
+        if self.config.registration_data is not None:
             transform_matrix = torch.tensor(registration_data["transform"])
             poses = transform_matrix @ poses
+        elif self.config.load_registration:
+            transform_matrix = torch.tensor(meta["transform"])
+            # transform_matrix = torch.eye(4)
         else:
             poses, transform_matrix = camera_utils.auto_orient_and_center_poses(
                 poses,
@@ -289,7 +293,7 @@ class Nerfstudio(DataParser):
         scale_factor *= self.config.scale_factor
         # if self.config.load_registration:
         #     scale_factor *= torch.tensor(meta["scale"])
-        if self.config.load_registration:
+        if self.config.load_registration and not self.config.inerf:
             scale_factor = 1.0
 
         poses[:, :3, 3] *= scale_factor
@@ -324,6 +328,10 @@ class Nerfstudio(DataParser):
                 CONSOLE.log(f"[yellow] registration_matrix is {registration_matrix}")
                 registration_matrix = torch.from_numpy(registration_matrix)
 
+                unregistration_matrix = pose_utils.inverse(registration_matrix)
+                poses = pose_utils.multiply(unregistration_matrix, poses)
+
+            if self.config.inerf:
                 unregistration_matrix = pose_utils.inverse(registration_matrix)
                 poses = pose_utils.multiply(unregistration_matrix, poses)
 
@@ -404,12 +412,12 @@ class Nerfstudio(DataParser):
                 "registration_matrix": registration_matrix if self.config.registration else None,
                 "registration_rot_euler": registration_rot_euler if self.config.registration else None,
                 "registration_translation": registration_translation if self.config.registration else None,
-                "height": height if self.config.registration else None,
-                "width": width if self.config.registration else None,
-                "fx": fx if self.config.registration else None,
-                "fy": fy if self.config.registration else None,
-                "cx": cx if self.config.registration else None,
-                "cy": cy if self.config.registration else None
+                "height": height,
+                "width": width,
+                "fx": fx,
+                "fy": fy,
+                "cx": cx,
+                "cy": cy
             },
         )
         return dataparser_outputs

@@ -51,6 +51,7 @@ from nerfstudio.utils.writer import EventName, TimeWriter
 from nerfstudio.viewer.server import viewer_utils
 from tqdm import tqdm
 from nerfstudio.viewer.server.viewer_state import ViewerState
+import json
 
 CONSOLE = Console(width=120)
 
@@ -97,6 +98,8 @@ class TrainerConfig(ExperimentConfig):
     """Optionally log gradients during training"""
     start_step: Optional[int] = None
     """Optionally specify start step to load from."""
+    t0: Optional[Path] = None
+    """load JSON file of t0."""
 
 
 
@@ -288,7 +291,16 @@ class Trainer:
                             )
 
                         if self.pipeline.config.registration:
-                            if pretrain_flag:
+                            if self.config.t0 is not None and pretrain_flag:
+                                with open(os.path.join(self.config.t0), 'r') as f:
+                                    t0_json = json.load(f)
+                                t0 = torch.tensor(t0_json["t0"], device=self.device)
+                                # with torch.no_grad():
+                                #     self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = t0
+                                t0_matrix = torch.tensor(t0_json["t0_matrix"], device=self.device)
+                                self.pipeline.datamanager.train_camera_optimizer.t0 = t0_matrix
+                                pretrain_flag = False
+                            elif pretrain_flag:
                                 if step == self._start_step:
                                     metrics_dict = self.pipeline.get_average_train_image_metrics(step)
                                     best_loss = metrics_dict["loss"]
@@ -297,10 +309,11 @@ class Trainer:
                                         pretrain_flag = False
                                         step = self._start_step
                                 elif step < num_pretrain:
+                                    print("Pretrain step:", step)
                                     min_rand_rot = 0
                                     max_rand_rot = 0.25*torch.pi
-                                    min_rand_trans = -0.25
-                                    max_rand_trans = 0.25
+                                    min_rand_trans = -0.5
+                                    max_rand_trans = 0.5
                                     # random_6dof_rot = torch.deg2rad(torch.tensor((-33.70861053466797, 85.56428527832031, 65.87945556640625-15)).to(
                                     #     device=self.device))
                                     # random_6dof_trans = torch.tensor((0.0986584841970366, -0.3439813595575635, -0.34400547966379735)).to(
@@ -310,6 +323,7 @@ class Trainer:
                                     random_6dof_trans = (min_rand_trans - max_rand_trans) * torch.rand(3).to(
                                         device=self.device) + max_rand_trans
                                     random_6dof = torch.concat((random_6dof_trans, random_6dof_rot))
+
                                     with torch.no_grad():
                                         self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = random_6dof
                                     metrics_dict = self.pipeline.get_average_train_image_metrics(step)
@@ -387,6 +401,19 @@ class Trainer:
 
         # write out any remaining events (e.g., total train time)
         writer.write_out_storage()
+
+        # Save the last iteration stats as txt file
+        stats_json = metrics_dict
+        stats_json_path = self.base_dir / "stats.json"
+        # Iterate through the keys and values in the input dictionary
+        for key, tensor in stats_json.items():
+            # Convert the tensor to a scalar by extracting the value
+            scalar_value = tensor.item() if isinstance(tensor, torch.Tensor) else tensor
+            # Add the scalar to the new dictionary
+            stats_json[key] = scalar_value
+
+        with open(stats_json_path, "w") as outfile:
+            json.dump(stats_json, outfile, indent=2)
 
         CONSOLE.rule()
         CONSOLE.print("[bold green]:tada: :tada: :tada: Training Finished :tada: :tada: :tada:", justify="center")

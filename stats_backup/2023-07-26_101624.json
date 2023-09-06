@@ -1,0 +1,26 @@
+{
+  "flower_0_100_even_odd": {
+    "psnr": 8.485203742980957,
+    "distortion": 0.061911582946777344,
+    "rotation_mse": 100.14291381835938,
+    "rotation_rmse": 10.007143020629883,
+    "translation_mse": 0.11627300828695297,
+    "translation_rmse": 0.34098827838897705
+  },
+  "flower_30_70_even_odd": {
+    "psnr": 10.876119613647461,
+    "distortion": 0.23201966285705566,
+    "rotation_mse": 1137.67578125,
+    "rotation_rmse": 33.72945022583008,
+    "translation_mse": 0.19316019117832184,
+    "translation_rmse": 0.43949994444847107
+  },
+  "flower_50_50": {
+    "psnr": 13.392318725585938,
+    "distortion": 0.05862557515501976,
+    "rotation_mse": 61.88888168334961,
+    "rotation_rmse": 7.86694860458374,
+    "translation_mse": 0.20550541579723358,
+    "translation_rmse": 0.4533270597457886
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "horns_0_100_even_odd": {
+    "psnr": 29.704530715942383,
+    "distortion": 0.007802588865160942,
+    "rotation_rmse": 0.015531228855252266,
+    "translation_rmse": 0.00017243243928533047
+  },
+  "horns_30_70_even_odd": {
+    "psnr": 20.96820831298828,
+    "distortion": 0.018945099785923958,
+    "rotation_rmse": 0.021227899938821793,
+    "translation_rmse": 0.000436944275861606
+  },
+  "horns_50_50": {
+    "psnr": 13.672296524047852,
+    "distortion": 0.24796544015407562,
+    "rotation_rmse": 28.7440185546875,
+    "translation_rmse": 0.2833532392978668
+  }
+}

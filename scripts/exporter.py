@@ -43,6 +43,7 @@ import cv2 as cv
 from nerfstudio.utils.io import load_from_json
 from nerfstudio.utils import colormaps
 
+from nerfstudio.exporter.exporter_utils import get_mask_from_view_likelihood
 
 
 CONSOLE = Console(width=120)
@@ -173,17 +174,26 @@ class ExportTransformsNF(Exporter):
 
     num_points: int = 10
     """Number of points to generate. May result in less if outlier removal is used."""
-    depth: float = 0.5
+    min_depth: float = 0.8
+    """depth: The depth of the camera."""
+    max_depth: float = 1.0
     """depth: The depth of the camera."""
     downscale_factor: int = 1
     depth_output_name: str = "depth"
     rgb_output_name: str = "rgb"
     mask_output_name: str = "mask"
     view_likelihood_output_name: str = "view_log_likelihood"
+    generate_masks: bool = True
+    seed: int = 42
 
 
     def main(self) -> None:
         """Export transform matrices."""
+
+        np.random.seed(self.seed)
+        torch.manual_seed(self.seed)
+        torch.cuda.manual_seed(self.seed)
+        torch.cuda.manual_seed_all(self.seed)
 
         if not self.output_dir.exists():
             self.output_dir.mkdir(parents=True)
@@ -195,12 +205,15 @@ class ExportTransformsNF(Exporter):
         # # Increase the batchsize to speed up the evaluation.
         # pipeline.datamanager.train_pixel_sampler.num_rays_per_batch = self.num_rays_per_batch
         dataparser_transforms = load_from_json(pathlib.Path(os.path.join(os.path.dirname(self.load_config), "dataparser_transforms.json")))
+        # print(dataparser_transforms)
 
         transforms, c2w = generate_cameras_from_nf(
             pipeline=pipeline,
             dataparser_transforms=dataparser_transforms,
             num_points=self.num_points,
-            depth=self.depth,
+            min_depth=self.min_depth,
+            max_depth=self.max_depth,
+            generate_masks=self.generate_masks,
         )
         torch.cuda.empty_cache()
 
@@ -247,19 +260,7 @@ class ExportTransformsNF(Exporter):
 
 
         for i in reversed(range(self.num_points)):
-            # Normalize
-            colormap_max = 1
-            colormap_min = 0
-            output = view_likelihood_images[i]
-            output = output * (colormap_max - colormap_min) + colormap_min
-            output = torch.nan_to_num(output)
-            output_colormap = torch.clip(output, 0, 1)
-            output_colormap = output_colormap.cpu().numpy()
-            output_colormap = (output_colormap * 255).astype(np.uint8)
-            output_colormap = cv.applyColorMap(output_colormap, cv.COLORMAP_TURBO)
-
-            threshold = 0.5
-            mask_output = (255 * (output >= threshold)).cpu().numpy()
+            mask_output, output_colormap = get_mask_from_view_likelihood(view_likelihood_images[i])
 
             # if (mask_output.sum() / (255 * mask_output.size)) <= 0.5:
             #     transforms["frames"].pop(i)

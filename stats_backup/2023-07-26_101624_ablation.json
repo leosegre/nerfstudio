@@ -1,0 +1,26 @@
+{
+  "horns_0_100_even_odd_no_init": {
+    "psnr": 12.571958541870117,
+    "distortion": 0.05683279410004616,
+    "rotation_mse": 637.7310791015625,
+    "rotation_rmse": 25.253337860107422,
+    "translation_mse": 0.06872881203889847,
+    "translation_rmse": 0.2621617913246155
+  },
+  "horns_0_100_even_odd_single_image": {
+    "psnr": 17.232694625854492,
+    "distortion": 0.01926952414214611,
+    "rotation_mse": 81.69384765625,
+    "rotation_rmse": 9.038464546203613,
+    "translation_mse": 0.3295067548751831,
+    "translation_rmse": 0.5740267634391785
+  },
+  "horns_0_100_even_odd_no_masks": {
+    "psnr": 19.12458038330078,
+    "distortion": 0.04043244943022728,
+    "rotation_mse": 0.025146685540676117,
+    "rotation_rmse": 0.1585770696401596,
+    "translation_mse": 3.1677132938057184e-05,
+    "translation_rmse": 0.005628244020044804
+  }
+}

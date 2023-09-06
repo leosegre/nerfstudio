@@ -1,0 +1,82 @@
+{
+  "horns_0_100_even_odd_0": {
+    "psnr": 19.938730239868164,
+    "distortion": 0.03523171320557594,
+    "rotation_mse": 0.00800611823797226,
+    "rotation_rmse": 0.08947691321372986,
+    "translation_mse": 3.470572846708819e-05,
+    "translation_rmse": 0.0058911568485200405
+  },
+  "horns_0_100_even_odd_1": {
+    "psnr": 13.205002784729004,
+    "distortion": 0.0404520146548748,
+    "rotation_mse": 47.1694450378418,
+    "rotation_rmse": 6.868001461029053,
+    "translation_mse": 0.0003798616526182741,
+    "translation_rmse": 0.019490038976073265
+  },
+  "horns_0_100_even_odd_2": {
+    "psnr": 9.35808277130127,
+    "distortion": 0.019171742722392082,
+    "rotation_mse": 235.4948272705078,
+    "rotation_rmse": 15.345840454101562,
+    "translation_mse": 0.029231756925582886,
+    "translation_rmse": 0.17097297310829163
+  },
+  "horns_0_100_even_odd_3": {
+    "psnr": 18.31268310546875,
+    "distortion": 0.028491394594311714,
+    "rotation_mse": 0.014052524231374264,
+    "rotation_rmse": 0.118543341755867,
+    "translation_mse": 3.307937367935665e-05,
+    "translation_rmse": 0.005751467309892178
+  },
+  "horns_0_100_even_odd_4": {
+    "psnr": 11.567072868347168,
+    "distortion": 0.04205698519945145,
+    "rotation_mse": 274.4588317871094,
+    "rotation_rmse": 16.56679916381836,
+    "translation_mse": 0.05566577613353729,
+    "translation_rmse": 0.23593595623970032
+  },
+  "horns_0_100_even_odd_5": {
+    "psnr": 9.085490226745605,
+    "distortion": 0.013816632330417633,
+    "rotation_mse": 68.30009460449219,
+    "rotation_rmse": 8.264387130737305,
+    "translation_mse": 0.030441753566265106,
+    "translation_rmse": 0.17447565495967865
+  },
+  "horns_0_100_even_odd_6": {
+    "psnr": 20.831310272216797,
+    "distortion": 0.033876582980155945,
+    "rotation_mse": 0.002209861995652318,
+    "rotation_rmse": 0.047009170055389404,
+    "translation_mse": 5.534243246074766e-05,
+    "translation_rmse": 0.007439249660819769
+  },
+  "horns_0_100_even_odd_7": {
+    "psnr": 10.442666053771973,
+    "distortion": 0.0161279384046793,
+    "rotation_mse": 211.63816833496094,
+    "rotation_rmse": 14.547789573669434,
+    "translation_mse": 0.023892879486083984,
+    "translation_rmse": 0.1545732170343399
+  },
+  "horns_0_100_even_odd_8": {
+    "psnr": 19.91972541809082,
+    "distortion": 0.04615713655948639,
+    "rotation_mse": 0.021976953372359276,
+    "rotation_rmse": 0.14824625849723816,
+    "translation_mse": 4.842477574129589e-05,
+    "translation_rmse": 0.006958791054785252
+  },
+  "horns_0_100_even_odd_9": {
+    "psnr": 19.65597152709961,
+    "distortion": 0.021611079573631287,
+    "rotation_mse": 0.0002450176980346441,
+    "rotation_rmse": 0.015653040260076523,
+    "translation_mse": 3.185003515682183e-05,
+    "translation_rmse": 0.005643583368510008
+  }
+}

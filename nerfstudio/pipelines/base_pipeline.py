@@ -51,6 +51,7 @@ from nerfstudio.utils import profiler
 from nerfstudio.cameras.lie_groups import exp_map_SE3, exp_map_SO3xR3
 from scipy.spatial.transform import Rotation
 import numpy as np
+import nerfstudio.utils.poses as pose_utils
 
 
 
@@ -314,7 +315,7 @@ class VanillaPipeline(Pipeline):
             if self.config.registration:
                 registration_matrix = self.datamanager.train_dataparser_outputs.metadata["registration_matrix"]
                 # unregistration_matrix = self.datamanager.train_dataparser_outputs.metadata["unregistration_matrix"]
-                camera_opt_transform_matrix = self.datamanager.train_camera_optimizer([0])
+                camera_opt_transform_matrix = pose_utils.multiply(self.datamanager.train_camera_optimizer([0]), self.datamanager.train_camera_optimizer.t0)
                 # print(unregistration_matrix.shape)
                 # print(camera_opt_transform_matrix.shape)
                 # print(unregistration_matrix.to(self.device) @ torch.cat((camera_opt_transform_matrix.squeeze(), torch.tensor([[0, 0, 0, 1]], device=self.device)), dim=0))
@@ -335,9 +336,9 @@ class VanillaPipeline(Pipeline):
                 translation_mse = torch.mean((camera_opt_translation - registration_translation).pow(2))
                 translation_rmse = torch.sqrt(translation_mse)
 
-                metrics_dict["rotation_mse"] = (rotation_mse)
+                # metrics_dict["rotation_mse"] = (rotation_mse)
                 metrics_dict["rotation_rmse"] = (rotation_rmse)
-                metrics_dict["translation_mse"] = (translation_mse)
+                # metrics_dict["translation_mse"] = (translation_mse)
                 metrics_dict["translation_rmse"] = (translation_rmse)
 
         loss_dict = self.model.get_loss_dict(model_outputs, batch, metrics_dict, full_images)

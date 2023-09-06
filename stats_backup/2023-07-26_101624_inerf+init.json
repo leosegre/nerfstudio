@@ -1,0 +1,170 @@
+{
+  "fern_0_100_even_odd": {
+    "psnr": 8.725265502929688,
+    "distortion": 0.05053276941180229,
+    "rotation_mse": 285.9031677246094,
+    "rotation_rmse": 16.90867042541504,
+    "translation_mse": 0.05345502868294716,
+    "translation_rmse": 0.23120343685150146
+  },
+  "fern_30_70_even_odd": {
+    "psnr": 10.297311782836914,
+    "distortion": 0.029349103569984436,
+    "rotation_mse": 133.94053649902344,
+    "rotation_rmse": 11.573267936706543,
+    "translation_mse": 0.01169979851692915,
+    "translation_rmse": 0.10816560685634613
+  },
+  "fern_50_50": {
+    "psnr": 10.05841064453125,
+    "distortion": 0.027020977810025215,
+    "rotation_mse": 141.2361602783203,
+    "rotation_rmse": 11.884282112121582,
+    "translation_mse": 0.01557646319270134,
+    "translation_rmse": 0.12480570375919342
+  },
+  "flower_0_100_even_odd": {
+    "psnr": 9.316812515258789,
+    "distortion": 0.11344856023788452,
+    "rotation_mse": 432.5182189941406,
+    "rotation_rmse": 20.79707145690918,
+    "translation_mse": 0.08972246199846268,
+    "translation_rmse": 0.2995370924472809
+  },
+  "flower_30_70_even_odd": {
+    "psnr": 11.723155975341797,
+    "distortion": 0.153967022895813,
+    "rotation_mse": 711.7124633789062,
+    "rotation_rmse": 26.677940368652344,
+    "translation_mse": 0.005608974024653435,
+    "translation_rmse": 0.07489308714866638
+  },
+  "flower_50_50": {
+    "psnr": 11.512591361999512,
+    "distortion": 0.1740277111530304,
+    "rotation_mse": 1059.221923828125,
+    "rotation_rmse": 32.54568862915039,
+    "translation_mse": 0.020351730287075043,
+    "translation_rmse": 0.1426594853401184
+  },
+  "fortress_0_100_even_odd": {
+    "psnr": 11.827303886413574,
+    "distortion": 0.06692633032798767,
+    "rotation_mse": 1075.9893798828125,
+    "rotation_rmse": 32.802276611328125,
+    "translation_mse": 0.02660081721842289,
+    "translation_rmse": 0.1630975753068924
+  },
+  "fortress_30_70_even_odd": {
+    "psnr": 9.330190658569336,
+    "distortion": 0.04828133061528206,
+    "rotation_mse": 1117.4434814453125,
+    "rotation_rmse": 33.428184509277344,
+    "translation_mse": 0.026200806722044945,
+    "translation_rmse": 0.16186663508415222
+  },
+  "fortress_50_50": {
+    "psnr": 12.13381576538086,
+    "distortion": 0.004419283475726843,
+    "rotation_mse": 126.5922622680664,
+    "rotation_rmse": 11.251322746276855,
+    "translation_mse": 0.0018649777630344033,
+    "translation_rmse": 0.043185386806726456
+  },
+  "horns_0_100_even_odd": {
+    "psnr": 10.340357780456543,
+    "distortion": 0.03760223463177681,
+    "rotation_mse": 128.73727416992188,
+    "rotation_rmse": 11.346244812011719,
+    "translation_mse": 0.002022045897319913,
+    "translation_rmse": 0.0449671633541584
+  },
+  "horns_30_70_even_odd": {
+    "psnr": 10.445566177368164,
+    "distortion": 0.029254311695694923,
+    "rotation_mse": 131.5709991455078,
+    "rotation_rmse": 11.470439910888672,
+    "translation_mse": 0.001830947701819241,
+    "translation_rmse": 0.04278957471251488
+  },
+  "horns_50_50": {
+    "psnr": 10.455085754394531,
+    "distortion": 0.016963230445981026,
+    "rotation_mse": 138.3684539794922,
+    "rotation_rmse": 11.763011932373047,
+    "translation_mse": 0.003663944313302636,
+    "translation_rmse": 0.06053052470088005
+  },
+  "orchids_0_100_even_odd": {
+    "psnr": 8.95224666595459,
+    "distortion": 0.02772282250225544,
+    "rotation_mse": 154.66677856445312,
+    "rotation_rmse": 12.43651008605957,
+    "translation_mse": 0.014829074032604694,
+    "translation_rmse": 0.12177468836307526
+  },
+  "orchids_30_70_even_odd": {
+    "psnr": 10.016664505004883,
+    "distortion": 0.10618314146995544,
+    "rotation_mse": 1026.0872802734375,
+    "rotation_rmse": 32.032596588134766,
+    "translation_mse": 0.03899266570806503,
+    "translation_rmse": 0.19746561348438263
+  },
+  "orchids_50_50": {
+    "psnr": 10.192440032958984,
+    "distortion": 0.09684877842664719,
+    "rotation_mse": 255.3947296142578,
+    "rotation_rmse": 15.981074333190918,
+    "translation_mse": 0.09147491306066513,
+    "translation_rmse": 0.30244821310043335
+  },
+  "room_0_100_even_odd": {
+    "psnr": 11.442198753356934,
+    "distortion": 0.14243564009666443,
+    "rotation_mse": 602.0260620117188,
+    "rotation_rmse": 24.536218643188477,
+    "translation_mse": 0.08108361810445786,
+    "translation_rmse": 0.28475186228752136
+  },
+  "room_30_70_even_odd": {
+    "psnr": 10.874210357666016,
+    "distortion": 0.1134721115231514,
+    "rotation_mse": 1016.1715698242188,
+    "rotation_rmse": 31.877445220947266,
+    "translation_mse": 0.018248360604047775,
+    "translation_rmse": 0.13508649170398712
+  },
+  "room_50_50": {
+    "psnr": 11.090495109558105,
+    "distortion": 0.055826202034950256,
+    "rotation_mse": 124.43901824951172,
+    "rotation_rmse": 11.155223846435547,
+    "translation_mse": 0.019089190289378166,
+    "translation_rmse": 0.13816364109516144
+  },
+  "trex_0_100_even_odd": {
+    "psnr": 10.10154914855957,
+    "distortion": 0.1588103473186493,
+    "rotation_mse": 1063.9852294921875,
+    "rotation_rmse": 32.6187858581543,
+    "translation_mse": 0.022148698568344116,
+    "translation_rmse": 0.14882439374923706
+  },
+  "trex_30_70_even_odd": {
+    "psnr": 9.628018379211426,
+    "distortion": 0.12459397315979004,
+    "rotation_mse": 1049.6605224609375,
+    "rotation_rmse": 32.39846420288086,
+    "translation_mse": 0.012331751175224781,
+    "translation_rmse": 0.11104841530323029
+  },
+  "trex_50_50": {
+    "psnr": 9.847101211547852,
+    "distortion": 0.17773973941802979,
+    "rotation_mse": 1025.1951904296875,
+    "rotation_rmse": 32.01866912841797,
+    "translation_mse": 0.014551912434399128,
+    "translation_rmse": 0.12063130736351013
+  }
+}

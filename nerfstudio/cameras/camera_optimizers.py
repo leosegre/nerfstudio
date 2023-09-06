@@ -99,6 +99,8 @@ class CameraOptimizer(nn.Module):
         else:
             assert_never(self.config.mode)
 
+        self.t0 = torch.eye(4, device=device)
+
         # Initialize pose noise; useful for debugging.
         if config.position_noise_std != 0.0 or config.orientation_noise_std != 0.0:
             assert config.position_noise_std >= 0.0 and config.orientation_noise_std >= 0.0
@@ -128,9 +130,9 @@ class CameraOptimizer(nn.Module):
         if self.config.mode == "off":
             pass
         elif self.config.mode == "SO3xR3":
-            outputs.append(exp_map_SO3xR3(self.pose_adjustment[indices, :]))
+            outputs.append(pose_utils.multiply(exp_map_SO3xR3(self.pose_adjustment[indices, :]), self.t0))
         elif self.config.mode == "SE3":
-            outputs.append(exp_map_SE3(self.pose_adjustment[indices, :]))
+            outputs.append(pose_utils.multiply(exp_map_SE3(self.pose_adjustment[indices, :]), self.t0))
         else:
             assert_never(self.config.mode)
 
@@ -142,4 +144,6 @@ class CameraOptimizer(nn.Module):
         if len(outputs) == 0:
             # Note that using repeat() instead of tile() here would result in unnecessary copies.
             return torch.eye(4, device=self.device)[None, :3, :4].tile(indices.shape[0], 1, 1)
+
+        # outputs = pose_utils.multiply(outputs, self.t0)
         return functools.reduce(pose_utils.multiply, outputs)

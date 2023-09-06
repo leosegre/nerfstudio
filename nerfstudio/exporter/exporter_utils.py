@@ -46,10 +46,13 @@ from nerfstudio.utils.rich_utils import ItersPerSecColumn
 from nerfstudio.fields.base_field import shift_directions_for_tcnn
 from nerfstudio.field_components.activations import trunc_exp
 from ..PointFlow.utils import truncated_normal, reduce_tensor, standard_normal_logprob
+import cv2 as cv
 
 from scipy.spatial.transform import Rotation
 import torch.nn.functional as F
 import torchgeometry as tgm
+from nerfstudio.cameras import camera_utils
+from nerfstudio.utils import poses as pose_utils
 
 CONSOLE = Console(width=120)
 
@@ -328,8 +331,10 @@ def generate_cameras_from_nf(
     pipeline: Pipeline,
     dataparser_transforms: dict,
     num_points: int = 10,
-    sample_ratio = 10,
-    depth: float = 0.5,
+    sample_ratio = 100,
+    min_depth: float = 0.8,
+    max_depth: float = 1.0,
+    generate_masks = True,
 
 ) -> o3d.geometry.PointCloud:
     """Generate a point cloud from a nerf.
@@ -347,7 +352,7 @@ def generate_cameras_from_nf(
 
     # pylint: disable=too-many-statements
     with torch.no_grad():
-        d_cat_x, log_prob = pipeline.model.nf_field.nf_model.sample(points_to_sample, sample_scale=16)
+        d_cat_x, log_prob = pipeline.model.nf_field.nf_model.sample(points_to_sample, sample_scale=1)
         # d_cat_x = sample(pipeline.model.nf_field.nf_model, 1, num_points, truncate_std=1, gpu=0).squeeze()
         print(d_cat_x.shape)
 
@@ -363,22 +368,14 @@ def generate_cameras_from_nf(
         print("points", points)
         print("directions", directions)
 
+
+    depth = torch.FloatTensor(directions.size()).uniform_(min_depth, max_depth).to(directions.device)
     c2w = torch.zeros((num_points, 4, 4))
+    my_c2w = torch.zeros((num_points, 4, 4))
     origins = points - directions * depth
-    # origins = torch.cat([origins, points], axis=0)
-    # directions = torch.cat([directions, directions], axis=0)
-    c2w[..., :3, 3] = origins  # (..., 3)
 
-    # angles = torch.acos(directions[:, 2])
-    # axes = torch.stack([-directions[:, 1], directions[:, 0], torch.zeros_like(directions[:, 0])], dim=1)
-    # norms = torch.norm(axes, p=2, dim=1, keepdim=True)
-    # normalized_axes = axes / norms
 
-    # quaternions = torch.cat([torch.cos(angles / 2).unsqueeze(1), normalized_axes * torch.sin(angles / 2).unsqueeze(1)], dim=1)
-    # r = Rotation.from_quat(quaternions.cpu().numpy())
-
-    # r = Rotation.from_rotvec(directions.cpu().numpy())
-    # rotation = torch.from_numpy(r.as_matrix())
+    my_c2w[..., :3, 3] = origins  # (..., 3)
 
     def align_vectors(a, b):
         b = b / np.linalg.norm(b)  # normalize a
@@ -397,19 +394,26 @@ def generate_cameras_from_nf(
         R = np.eye(3, dtype=np.float64) + Vmat + (Vmat.dot(Vmat) * h)
         return R
 
-    directions = directions.cpu().numpy()
+    directions = directions
+    directions_numpy = directions.cpu().numpy()
 
     for i in range(num_points):
-        c2w[i, :3, :3] = torch.from_numpy(align_vectors(np.array([0, 0, -1]), directions[i]))
+        my_c2w[i, :3, :3] = torch.from_numpy(align_vectors(np.array([0, 0, -1]), directions_numpy[i]))
 
-    # z = torch.tensor(np.array([0, 0, -1])).repeat(num_points, 1).cpu().numpy()
-    # print(z.shape)
-    # r = Rotation.align_vectors(z, directions.cpu().numpy())
-    # rotation = torch.from_numpy(r[0].as_matrix())
+    my_c2w[..., 3, 3] = 1
 
-    # rotation = torch.diag(torch.tensor([1, 1, 1]))
-    # c2w[..., :3, :3] = rotation  # (..., 3, 3)
-    c2w[..., 3, 3] = 1
+    up = torch.randn_like(directions)
+    up = torch.cross(up, directions, dim=1)
+
+
+    for i in range(num_points):
+        c2w_temp = camera_utils.viewmatrix(-directions[i], up[i], origins[i])
+        c2w_temp = pose_utils.to4x4(c2w_temp)
+        c2w[i] = c2w_temp
+
+    # c2w = my_c2w
+
+    # import ipdb; ipdb.set_trace()
     c2w_list = c2w.tolist()
 
     ## Make full transform file with fixed parameters
@@ -429,7 +433,8 @@ def generate_cameras_from_nf(
     for i, camera in enumerate(c2w_list):
         frame = {}
         frame["file_path"] = f"images/rgb_{i}.png"
-        frame["mask_path"] = f"images/mask_{i}.png"
+        if generate_masks:
+            frame["mask_path"] = f"images/mask_{i}.png"
         # transform_matrix = np.array(eval(camera["matrix"])).reshape((4, 4)).T
         frame["transform_matrix"] = camera
         frames.append(frame)
@@ -442,6 +447,7 @@ def generate_cameras_from_nf(
     transforms["registration_matrix"] = dataparser_transforms["registration_matrix"]
     transforms["registration_rot_euler"] = dataparser_transforms["registration_rot_euler"]
     transforms["registration_translation"] = dataparser_transforms["registration_translation"]
+    transforms["scale"] = dataparser_transforms["scale"]
 
 
     return transforms, c2w
@@ -562,3 +568,35 @@ def collect_camera_poses(pipeline: VanillaPipeline) -> Tuple[List[Dict[str, Any]
     eval_frames = collect_camera_poses_for_dataset(eval_dataset)
 
     return train_frames, eval_frames
+
+
+def get_mask_from_view_likelihood(image):
+    # Normalize
+    colormap_max = 5
+    colormap_min = 0
+    colormap_normalize = False
+    eps = 1e-6
+    output = image
+    # output = torch.nan_to_num(output)
+    # Find the minimum non-NaN value
+    min_value = torch.min(output[~torch.isnan(output)])
+    # Replace NaN values with the minimum non-NaN value
+    output[torch.isnan(output)] = min_value
+    # print("before exp:", output.min(), output.max())
+    output = torch.exp(output)
+    # output = torch.clip(output, 0, 100)
+    # print("after exp:", output.min(), output.max())
+    if colormap_normalize:
+        output = output - torch.min(output)
+        output = output / (torch.max(output) + eps)
+    output = output * (colormap_max - colormap_min) + colormap_min
+    output = torch.nan_to_num(output)
+    output_colormap = torch.clip(output, 0, 1)
+    output_colormap = output_colormap.cpu().numpy()
+    output_colormap = (output_colormap * 255).astype(np.uint8)
+    output_colormap = cv.applyColorMap(output_colormap, cv.COLORMAP_TURBO)
+
+    threshold = 0.25
+    mask_output = (255 * (output >= threshold)).cpu().numpy()
+
+    return mask_output, output_colormap

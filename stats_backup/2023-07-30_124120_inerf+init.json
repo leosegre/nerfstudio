@@ -1,0 +1,18 @@
+{
+  "lion_0_100_even_odd": {
+    "psnr": 16.75925636291504,
+    "distortion": 0.0021713883616030216,
+    "rotation_mse": 908.9133911132812,
+    "rotation_rmse": 30.148191452026367,
+    "translation_mse": 0.018377332016825676,
+    "translation_rmse": 0.13556301593780518
+  },
+  "table_0_100_even_odd": {
+    "psnr": 9.310445785522461,
+    "distortion": 0.033719222992658615,
+    "rotation_mse": 171.44158935546875,
+    "rotation_rmse": 13.093570709228516,
+    "translation_mse": 0.004633146803826094,
+    "translation_rmse": 0.06806722283363342
+  }
+}

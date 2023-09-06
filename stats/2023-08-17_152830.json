@@ -1,0 +1,74 @@
+{
+  "fern_0_100_even_odd": {
+    "psnr": 13.076937675476074,
+    "distortion": 0.04608391970396042,
+    "rotation_rmse": 4.954077243804932,
+    "translation_rmse": 0.1458844691514969
+  },
+  "fern_30_70_even_odd": {
+    "psnr": 10.853893280029297,
+    "distortion": 0.012264296412467957,
+    "rotation_rmse": 7.70408821105957,
+    "translation_rmse": 0.1926031857728958
+  },
+  "fern_50_50": {
+    "psnr": 18.386852264404297,
+    "distortion": 0.019068527966737747,
+    "rotation_rmse": 0.03430534154176712,
+    "translation_rmse": 0.00045119327842257917
+  },
+  "fortress_0_100_even_odd": {
+    "psnr": 12.093376159667969,
+    "distortion": 0.09946057945489883,
+    "rotation_rmse": 11.35832691192627,
+    "translation_rmse": 0.31341472268104553
+  },
+  "fortress_30_70_even_odd": {
+    "psnr": 23.73845863342285,
+    "distortion": 0.009616169147193432,
+    "rotation_rmse": 0.12362252175807953,
+    "translation_rmse": 0.0005398888024501503
+  },
+  "fortress_50_50": {
+    "psnr": 21.43968963623047,
+    "distortion": 0.003694157348945737,
+    "rotation_rmse": 13.601286888122559,
+    "translation_rmse": 0.41406869888305664
+  },
+  "horns_0_100_even_odd": {
+    "psnr": 33.557395935058594,
+    "distortion": 0.008213476277887821,
+    "rotation_rmse": 0.017123250290751457,
+    "translation_rmse": 4.355068085715175e-05
+  },
+  "horns_30_70_even_odd": {
+    "psnr": 29.331857681274414,
+    "distortion": 0.012882838025689125,
+    "rotation_rmse": 0.00378886959515512,
+    "translation_rmse": 0.00019070314010605216
+  },
+  "horns_50_50": {
+    "psnr": 24.995628356933594,
+    "distortion": 0.009719536639750004,
+    "rotation_rmse": 0.015007656998932362,
+    "translation_rmse": 0.00015446021279785782
+  },
+  "room_0_100_even_odd": {
+    "psnr": 12.043195724487305,
+    "distortion": 0.0038754187989979982,
+    "rotation_rmse": 12.954999923706055,
+    "translation_rmse": 0.19698210060596466
+  },
+  "room_30_70_even_odd": {
+    "psnr": 9.924883842468262,
+    "distortion": 0.027802079916000366,
+    "rotation_rmse": 27.068227767944336,
+    "translation_rmse": 0.2381531447172165
+  },
+  "room_50_50": {
+    "psnr": 11.662735939025879,
+    "distortion": 0.04194642975926399,
+    "rotation_rmse": 22.95124053955078,
+    "translation_rmse": 0.12001470476388931
+  }
+}

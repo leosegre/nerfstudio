@@ -73,6 +73,8 @@ from torchvision.utils import save_image
 from scipy.ndimage import gaussian_filter
 import cv2 as cv
 
+from nerfstudio.exporter.exporter_utils import get_mask_from_view_likelihood
+
 
 
 @dataclass
@@ -466,7 +468,12 @@ class NerfactoModel(Model):
         self, outputs: Dict[str, torch.Tensor], batch: Dict[str, torch.Tensor], step
     ) -> Tuple[Dict[str, float], Dict[str, torch.Tensor]]:
         image = batch["image"].to(self.device)
+        if "mask" in batch.keys():
+            image_mask = batch["mask"].to(self.device)
+        else:
+            image_mask = torch.ones((image.shape[0], image.shape[1]), device=self.device)
         rgb = outputs["rgb"]
+        rgb_mask_numpy, rgb_mask_colormap = get_mask_from_view_likelihood(outputs["view_log_likelihood"])
         acc = colormaps.apply_colormap(outputs["accumulation"])
         depth = colormaps.apply_depth_colormap(
             outputs["depth"],
@@ -488,6 +495,8 @@ class NerfactoModel(Model):
 
         image_numpy = image.cpu().numpy()
         rgb_numpy = rgb.cpu().numpy()
+        image_mask_numpy = image_mask.cpu().numpy().astype(np.uint8)
+        rgb_mask_numpy = rgb_mask_numpy.astype(np.uint8)
 
         # gray_image = cv.cvtColor(image_numpy, cv.COLOR_BGR2GRAY)
         # gray_image = cv.normalize(gray_image, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
@@ -497,31 +506,40 @@ class NerfactoModel(Model):
         color_image = cv.normalize(color_image, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
         color_rgb = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2RGB)
         color_rgb = cv.normalize(color_rgb, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
-        # Calculate Homography
-        sift = cv.SIFT_create()
-        kp_image, des_image = sift.detectAndCompute(color_image, None)
-        kp_rgb, des_rgb = sift.detectAndCompute(color_rgb, None)
 
-        # image_numpy = cv.normalize(image_numpy, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
-        # rgb_numpy = cv.normalize(rgb_numpy, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
-        # # Calculate Homography
-        # sift = cv.SIFT_create()
-        # kp_image, des_image = sift.detectAndCompute(image_numpy, None)
-        # kp_rgb, des_rgb = sift.detectAndCompute(rgb_numpy, None)
-
-        # img2 = cv.drawKeypoints(image_numpy, kp_image, None)
-        # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/step_{step}_image_siftkpgray.jpg", img2)
-        # img2 = cv.drawKeypoints(rgb_numpy, kp_rgb, None)
-        # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/step_{step}_rgb_siftkpgray.jpg", img2)
+        # import ipdb; ipdb.set_trace()
 
         # FLANN parameters
         FLANN_INDEX_KDTREE = 1
         MIN_MATCH_COUNT = 10
-        index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
-        search_params = dict(checks=50)  # or pass empty dictionary
-        flann = cv.FlannBasedMatcher(index_params, search_params)
 
-        bf = cv.BFMatcher(crossCheck=True)
+        if rgb_mask_numpy.any() and image_mask_numpy.any():
+            # Calculate Homography
+            sift = cv.SIFT_create()
+            kp_image, des_image = sift.detectAndCompute(color_image, image_mask_numpy)
+            kp_rgb, des_rgb = sift.detectAndCompute(color_rgb, None)
+
+            # image_numpy = cv.normalize(image_numpy, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+            # rgb_numpy = cv.normalize(rgb_numpy, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+            # # Calculate Homography
+            # sift = cv.SIFT_create()
+            # kp_image, des_image = sift.detectAndCompute(image_numpy, None)
+            # kp_rgb, des_rgb = sift.detectAndCompute(rgb_numpy, None)
+
+            # img2 = cv.drawKeypoints(image_numpy, kp_image, None)
+            # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/step_{step}_image_siftkpgray.jpg", img2)
+            # img2 = cv.drawKeypoints(rgb_numpy, kp_rgb, None)
+            # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/step_{step}_rgb_siftkpgray.jpg", img2)
+
+
+            index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
+            search_params = dict(checks=50)  # or pass empty dictionary
+            flann = cv.FlannBasedMatcher(index_params, search_params)
+
+            bf = cv.BFMatcher(crossCheck=True)
+        else:
+            kp_rgb = []
+            print("Skipped - All image masked")
 
         if len(kp_rgb) == 0:
             matches = []
@@ -542,7 +560,7 @@ class NerfactoModel(Model):
         if len(good) > MIN_MATCH_COUNT:
             src_pts = np.float32([kp_image[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
             dst_pts = np.float32([kp_rgb[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
-            M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 9.0)
+            M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 7.0)
             matchesMask = mask.ravel().tolist()
             if np.array(matchesMask).sum() == 0:
                 print("matchesMask is 0 for in all entries")
@@ -607,45 +625,6 @@ class NerfactoModel(Model):
                            np.concatenate((image_numpy, im_image_dst, rgb_numpy), axis=1))
             else:
                 loss = 10
-
-
-
-
-
-
-            # # QR decomposition
-            # rot_mat = M[:2, :2]
-            # trans_mat = M[:2, 2]
-            # a = rot_mat[0, 0]
-            # b = rot_mat[0, 1]
-            # d = rot_mat[1, 0]
-            # e = rot_mat[1, 1]
-            # c = trans_mat[0]
-            # f = trans_mat[1]
-            #
-            #
-            # det_rot = np.linalg.det(rot_mat)
-            #
-            # p = np.sqrt(a**2 + b**2)
-            # r = det_rot/p
-            # q = (a*d+b*e)/det_rot
-            # phi = np.arctan2(b, a)
-            #
-            # lamda_rot = 1
-            # p_loss = np.sqrt((1-p)**2)
-            # r_loss = np.sqrt((1-r)**2)
-            # q_loss = np.abs(q)
-            # c_loss = np.abs(c/w)
-            # f_loss = np.abs(f/h)
-            # phi_loss = lamda_rot*np.abs(phi)
-            #
-            #
-            # loss = p_loss + r_loss + q_loss + c_loss + f_loss + phi_loss
-            #
-            # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/image_{rnd_num}_loss_{loss:.3f}"
-            #            f"_p_{p_loss:.3f}_r_{r_loss:.3f}_q_{q_loss:.3f}"
-            #            f"_c_{c_loss:.3f}_f_{f_loss:.3f}_phi_{phi_loss:.3f}.png", img3)
-
 
 
             # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/image_loss_{loss:.0f}.png", img3)

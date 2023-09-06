@@ -113,9 +113,9 @@ method_configs["nerfacto"] = TrainerConfig(
             "scheduler": ExponentialDecaySchedulerConfig(lr_final=0.0001, max_steps=200000),
         },
         "nf_field": {
-            "optimizer": AdamOptimizerConfig(lr=5e-6, eps=0.001),
+            "optimizer": RAdamOptimizerConfig(lr=5e-5, eps=0.1),
             "scheduler": None,
-            # "scheduler": ExponentialDecaySchedulerConfig(lr_final=5e-5, max_steps=60000),
+            # "scheduler": ExponentialDecaySchedulerConfig(lr_final=1e-6, max_steps=100000),
             # "scheduler": CosineDecaySchedulerConfig(max_steps=30000),
         },
     },
@@ -135,11 +135,11 @@ method_configs["register-nerfacto"] = TrainerConfig(
             train_num_rays_per_batch=4096,
             eval_num_rays_per_batch=4096,
             camera_optimizer=CameraOptimizerConfig(
-                mode="SO3xR3",
-                optimizer=SGDOptimizerConfig(lr=6e-4, eps=1e-8),
+                # mode="SO3xR3",
+                mode="SE3",
+                optimizer=SGDOptimizerConfig(lr=5e-3, eps=1e-8),
+                scheduler=ExponentialDecaySchedulerConfig(lr_final=5e-4, max_steps=10000),
                 # scheduler=CosineDecaySchedulerConfig(max_steps=10000),
-                # optimizer=AdamOptimizerConfig(lr=6e-4, eps=0.0001, weight_decay=1e-2),
-                scheduler=ExponentialDecaySchedulerConfig(lr_final=6e-5, max_steps=10000),
             ),
         ),
         model=NerfactoModelConfig(eval_num_rays_per_chunk=1 << 15, register=True),
@@ -161,6 +161,49 @@ method_configs["register-nerfacto"] = TrainerConfig(
     viewer=ViewerConfig(num_rays_per_chunk=1 << 15),
     vis="viewer",
 )
+
+method_configs["register-nerfacto-inerf"] = TrainerConfig(
+    method_name="nerfacto",
+    steps_per_eval_batch=500,
+    steps_per_save=2000,
+    max_num_iterations=30000,
+    mixed_precision=True,
+    pipeline=VanillaPipelineConfig(
+        datamanager=VanillaDataManagerConfig(
+            dataparser=NerfstudioDataParserConfig(),
+            train_num_rays_per_batch=4096,
+            eval_num_rays_per_batch=4096,
+            camera_optimizer=CameraOptimizerConfig(
+                # mode="SO3xR3",
+                mode="SE3",
+                # optimizer=SGDOptimizerConfig(lr=6e-4, eps=1e-8),
+                # scheduler=ExponentialDecaySchedulerConfig(lr_final=6e-5, max_steps=20000),
+                # optimizer=AdamOptimizerConfig(lr=5e-3, eps=1e-8, weight_decay=1e-2),
+                optimizer=AdamOptimizerConfig(lr=5e-3, eps=1e-8),
+                scheduler=ExponentialDecaySchedulerConfig(lr_final=5e-4, max_steps=10000),
+                # scheduler=CosineDecaySchedulerConfig(max_steps=10000),
+            ),
+        ),
+        model=NerfactoModelConfig(eval_num_rays_per_chunk=1 << 15, register=True),
+    ),
+    optimizers={
+        "proposal_networks": {
+            "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
+            "scheduler": ExponentialDecaySchedulerConfig(lr_final=0.0001, max_steps=200000),
+        },
+        "fields": {
+            "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
+            "scheduler": ExponentialDecaySchedulerConfig(lr_final=0.0001, max_steps=200000),
+        },
+        "nf_field": {
+            "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
+            "scheduler": ExponentialDecaySchedulerConfig(lr_final=0.0001, max_steps=200000),
+        },
+    },
+    viewer=ViewerConfig(num_rays_per_chunk=1 << 15),
+    vis="viewer",
+)
+
 
 method_configs["nerfacto-big"] = TrainerConfig(
     method_name="nerfacto",
