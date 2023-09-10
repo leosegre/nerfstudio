@@ -2,6 +2,7 @@ import os
 import subprocess
 from datetime import datetime
 import sys
+import numpy as np
 
 import json
 
@@ -10,7 +11,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types):
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
     # timestamp = "2023-07-26_101624"
     # timestamp = "2023-07-30_124120"
-    timestamp = "2023-08-13_180819"
+    # timestamp = "2023-08-13_180819"
     print(timestamp)
 
     default_params = "ns-train nerfacto --viewer.quit-on-train-completion True --max-num-iterations 45000 --nf-first-iter 30000 --pipeline.datamanager.train-num-rays-per-batch 1024 " \
@@ -42,24 +43,26 @@ def main(data_dir, outputs_dir, scene_names, exp_types):
                 "data1": f"{data_dir}/{scene}/transforms_{exp_type}_1.json",
                 "data2": f"{data_dir}/{scene}/transforms_{exp_type}_2.json",
                 "experiment_name": f"{scene}_{exp_type}",
+                "scene_name": f"{scene}",
                 "downscale_factor": "2",
                 "num_points_reg": "5",
                 "num_points_unreg": "10",
                 "pretrain-iters": "20",
-                "unreg_data_dir": f"{data_dir}/"
+                "unreg_data_dir": f"{data_dir}/",
+                "outputs_dir": f"{outputs_dir}"
             }
             exps.append(exp_params)
 
     total_stats = {}
     for exp in exps:
         print("experiment_name:", exp["experiment_name"])
-        registered_scene_cmd = default_params + \
-                               "--data " + exp["data1"] + " --experiment_name " + exp["experiment_name"]  \
+        registered_scene_cmd = default_params + "--output-dir " + exp["outputs_dir"] + " --machine.seed {}"\
+                               " --data " + exp["data1"] + " --experiment_name " + exp["experiment_name"]  \
                                + "_registered --timestamp " + timestamp + default_params_registered + \
                                "--downscale_factor " + exp["downscale_factor"]
 
-        unregistered_scene_cmd = default_params + \
-                               "--data " + exp["data2"] + " --experiment_name " + exp["experiment_name"]  \
+        unregistered_scene_cmd = default_params + "--output-dir " + exp["outputs_dir"] + " --machine.seed {}" \
+                               " --data " + exp["data2"] + " --experiment_name " + exp["experiment_name"]  \
                                + "_unregistered --timestamp " + timestamp + default_params_unregistered + \
                                "--downscale_factor " + exp["downscale_factor"] + \
                                " --registration_data " + outputs_dir + exp["experiment_name"] + "_registered/nerfacto/" + timestamp
@@ -75,22 +78,20 @@ def main(data_dir, outputs_dir, scene_names, exp_types):
         t0_cmd = "python scripts/generate_t0_list.py " + exp["unreg_data_dir"] + exp["experiment_name"] + "_registered/transforms.json " \
                  + exp["unreg_data_dir"] + exp["experiment_name"] + "_unregistered/transforms.json " + exp["downscale_factor"]
 
-        registeration_cmd = default_params_registration + \
+        registeration_cmd = default_params_registration + " --output-dir " + exp["outputs_dir"] + \
                             " --pretrain-iters " + exp["pretrain-iters"] + " --machine.seed {}" \
                             + " --data " + exp["unreg_data_dir"] + exp["experiment_name"] + "_unregistered" \
                             + " --experiment_name " + exp["experiment_name"] + "_registration --timestamp " + timestamp \
                             + " --load_dir " + outputs_dir + exp["experiment_name"] + "_registered/nerfacto/" + timestamp + "/nerfstudio_models/" \
                             + default_params_registration_suffix + " --downscale_factor " + exp["downscale_factor"]
-        # + " --t0 " + exp["unreg_data_dir"] + exp["experiment_name"] + "_unregistered/best_t0.json" + \
 
-        # os.system(registered_scene_cmd)
-        # os.system(unregistered_scene_cmd)
+        scene_seed = np.array(list(exp["scene_name"].encode('ascii'))).sum()
+        os.system(registered_scene_cmd.format(scene_seed))
+        os.system(unregistered_scene_cmd.format(scene_seed))
 
         best_psnr = 0
         for i in range(3):
             os.system(export_cmd_unreg.format(str(i)))
-            # os.system(export_cmd_reg)
-            # os.system(t0_cmd)
             os.system(registeration_cmd.format(str(i)))
 
             # Read the stats of the registration

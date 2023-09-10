@@ -96,16 +96,16 @@ RUN git clone --branch 3.8 https://github.com/colmap/colmap.git --single-branch 
     cd ../.. && \
     rm -rf colmap
 
-# Create non root user and setup environment.
-RUN useradd -m -d /home/user -g root -G sudo -u 1000 user
-RUN usermod -aG sudo user
-# Set user password
-RUN echo "user:user" | chpasswd
-# Ensure sudo group users are not asked for a password when using sudo command by ammending sudoers file
-RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
-
-# Switch to new uer and workdir.
-USER 1000
+## Create non root user and setup environment.
+#RUN useradd -m -d /home/user -g root -G sudo -u 1000 user
+#RUN usermod -aG sudo user
+## Set user password
+#RUN echo "user:user" | chpasswd
+## Ensure sudo group users are not asked for a password when using sudo command by ammending sudoers file
+#RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+#
+## Switch to new uer and workdir.
+#USER 1000
 WORKDIR /home/user
 
 # Add local user binary folder to PATH variable.
@@ -148,9 +148,9 @@ RUN git clone --branch main --recursive https://github.com/cvg/pixel-perfect-sfm
 RUN python3.10 -m pip install omegaconf
 # Copy nerfstudio folder and give ownership to user.
 ADD . /home/user/nerfstudio
-USER root
-RUN chown -R user /home/user/nerfstudio
-USER 1000
+#USER root
+#RUN chown -R user /home/user/nerfstudio
+#USER 1000
 
 # Install nerfstudio dependencies.
 RUN cd nerfstudio && \
@@ -163,7 +163,7 @@ RUN cd nerfstudio/normalizing-flows/ && \
     cd ../..
 
 # Change working directory
-WORKDIR /workspace
+WORKDIR /home/user/nerfstudio
 
 # Install nerfstudio cli auto completion and enter shell if no command was provided.
 CMD ns-install-cli --mode install && /bin/bash
