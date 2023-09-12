@@ -11,6 +11,8 @@ def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
     if timestamp is None:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
         reconstruct_scenes = True
+    else:
+        reconstruct_scenes = False
     # timestamp = "2023-07-26_101624"
     print(timestamp)
 
