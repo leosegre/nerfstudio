@@ -12,8 +12,6 @@ def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
         timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
         reconstruct_scenes = True
     # timestamp = "2023-07-26_101624"
-    # timestamp = "2023-07-30_124120"
-    # timestamp = "2023-08-13_180819"
     print(timestamp)
 
     default_params = "ns-train nerfacto --viewer.quit-on-train-completion True --max-num-iterations 45000 --nf-first-iter 30000 --pipeline.datamanager.train-num-rays-per-batch 1024 " \

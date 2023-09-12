@@ -165,7 +165,11 @@ RUN cd nerfstudio/normalizing-flows/ && \
 # Change working directory
 WORKDIR /home/user/nerfstudio
 
+# Copy the entrypoint script into the container
+COPY entrypoint.sh .
+
+# Make the entrypoint script the entrypoint for the container
+ENTRYPOINT ["bash", "entrypoint.sh"]
+
 # Install nerfstudio cli auto completion and enter shell if no command was provided.
 CMD ns-install-cli --mode install && /bin/bash
-
-ENTRYPOINT git pull
