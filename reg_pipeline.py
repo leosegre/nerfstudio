@@ -7,8 +7,10 @@ import numpy as np
 import json
 
 
-def main(data_dir, outputs_dir, scene_names, exp_types):
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
+    if timestamp is None:
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        reconstruct_scenes = True
     # timestamp = "2023-07-26_101624"
     # timestamp = "2023-07-30_124120"
     # timestamp = "2023-08-13_180819"
@@ -85,9 +87,10 @@ def main(data_dir, outputs_dir, scene_names, exp_types):
                             + " --load_dir " + outputs_dir + exp["experiment_name"] + "_registered/nerfacto/" + timestamp + "/nerfstudio_models/" \
                             + default_params_registration_suffix + " --downscale_factor " + exp["downscale_factor"]
 
-        scene_seed = np.array(list(exp["scene_name"].encode('ascii'))).sum()
-        os.system(registered_scene_cmd.format(scene_seed))
-        os.system(unregistered_scene_cmd.format(scene_seed))
+        if reconstruct_scenes:
+            scene_seed = np.array(list(exp["scene_name"].encode('ascii'))).sum()
+            os.system(registered_scene_cmd.format(scene_seed))
+            os.system(unregistered_scene_cmd.format(scene_seed))
 
         best_psnr = 0
         for i in range(3):
@@ -107,13 +110,15 @@ def main(data_dir, outputs_dir, scene_names, exp_types):
     curr_timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
 
     base_dir = f"{outputs_dir}/../stats/"
+    if not os.path.exists(base_dir):
+        os.mkdir(base_dir)
     total_stats_path = base_dir + curr_timestamp + ".json"
     with open(total_stats_path, "w") as outfile:
         json.dump(total_stats, outfile, indent=2)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 5:
-        print("Usage: python reg_pipeline.py <data_directory> <output_directory> <scene_names> <exp_types>")
+    if len(sys.argv) != 5 and len(sys.argv) != 6:
+        print("Usage: python reg_pipeline.py <data_directory> <output_directory> <scene_names> <exp_types> <<timestamp>>")
     else:
         base_directory = sys.argv[1]
         output_directory = sys.argv[2]
@@ -124,7 +129,11 @@ if __name__ == "__main__":
         elif not os.path.isdir(output_directory):
             print(f"Error: {output_directory} is not a valid directory.")
         else:
-            main(base_directory, output_directory, scene_names, exp_types)
+            if len(sys.argv) == 6:
+                timestamp = sys.argv[5]
+                main(base_directory, output_directory, scene_names, exp_types, timestamp)
+            else:
+                main(base_directory, output_directory, scene_names, exp_types)
 
 
 
