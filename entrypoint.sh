@@ -2,7 +2,9 @@
 set -e
 
 # Perform a git pull in your repository
-git fetch
+git reset --hard
+git clean -fd
+git pull
 
 # Run your main application command
 exec "$@"
