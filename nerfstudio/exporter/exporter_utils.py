@@ -575,6 +575,7 @@ def get_mask_from_view_likelihood(image):
     colormap_max = 5
     colormap_min = 0
     colormap_normalize = True
+    print(colormap_normalize)
     eps = 1e-6
     output = image
     # output = torch.nan_to_num(output)
