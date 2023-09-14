@@ -45,7 +45,6 @@ from nerfstudio.utils.rich_utils import ItersPerSecColumn
 
 from nerfstudio.fields.base_field import shift_directions_for_tcnn
 from nerfstudio.field_components.activations import trunc_exp
-from ..PointFlow.utils import truncated_normal, reduce_tensor, standard_normal_logprob
 import cv2 as cv
 
 from scipy.spatial.transform import Rotation
@@ -217,18 +216,6 @@ def generate_point_cloud(
         pcd.normals = o3d.utility.Vector3dVector(normals.double().cpu().numpy())
 
     return pcd
-
-def sample_gaussian(size, truncate_std=None, gpu=None):
-    y = torch.randn(*size).float()
-    y = y if gpu is None else y.cuda(gpu)
-    if truncate_std is not None:
-        truncated_normal(y, mean=0, std=1, trunc_std=truncate_std)
-    return y
-
-def sample(point_cnf, batch_size, num_points, truncate_std=None, truncate_std_latent=None, gpu=None):
-    y = sample_gaussian((batch_size, num_points, 6), truncate_std, gpu=gpu)
-    x = point_cnf(y, None, reverse=True).view(*y.size())
-    return x
 
 def generate_point_cloud_nf(
     pipeline: Pipeline,
