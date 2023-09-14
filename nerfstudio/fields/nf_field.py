@@ -50,9 +50,6 @@ from nerfstudio.field_components.spatial_distortions import (
 )
 from nerfstudio.fields.base_field import Field, shift_directions_for_tcnn
 import normflows as nf
-from ..PointFlow.models.flow import get_point_cnf
-from ..PointFlow.args import get_args
-from ..PointFlow.utils import truncated_normal, reduce_tensor, standard_normal_logprob
 
 
 
