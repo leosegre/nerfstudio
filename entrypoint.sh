@@ -2,9 +2,10 @@
 set -e
 
 # Perform a git pull in your repository
-git reset --hard
-git clean -fd
-git pull
+cd ..
+rm -rf nerfstudio
+git clone -b registration https://github.com/leosegre/nerfstudio.git
+cd nerfstudio
 
 # Run your main application command
 exec "$@"

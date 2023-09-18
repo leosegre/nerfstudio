@@ -575,6 +575,19 @@ class Trainer:
                 if f != ckpt_path:
                     f.unlink()
 
+        # ckpt_path_pt: Path = self.checkpoint_dir / f"step-{step:09d}.pt"
+        # example_forward_input = torch.rand(1, 6)
+        # # trace
+        # print("tracing..")
+        # pipeline_traced = torch.jit.trace(self.pipeline, example_forward_input)
+        # pipeline_traced.eval()  # type: ignore
+        # print("done tracing")
+        #
+        # # save the traced model
+        # pipeline_traced.save(unet_traced_filename)  # type: ignore
+
+
+
 
     @profiler.time_function
     def train_iteration(self, step: int) -> TRAIN_INTERATION_OUTPUT:

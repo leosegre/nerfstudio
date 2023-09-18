@@ -17,7 +17,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
     # timestamp = "2023-07-26_101624"
     print(timestamp)
 
-    default_params = "ns-train nerfacto --viewer.quit-on-train-completion True --max-num-iterations 45000 --nf-first-iter 30000 --pipeline.datamanager.train-num-rays-per-batch 1024 " \
+    default_params = "ns-train nerfacto --viewer.quit-on-train-completion True --max-num-iterations 45000 --nf-first-iter 40000 --pipeline.datamanager.train-num-rays-per-batch 1024 " \
                      "--pipeline.model.predict-view-likelihood True --pipeline.datamanager.camera-optimizer.mode off --vis tensorboard "
     default_params_registered = " nerfstudio-data --auto_scale_poses True --train-split-fraction 1.0 --center-method focus --orientation-method up --scene-scale 2 "
     default_params_unregistered = " nerfstudio-data --train-split-fraction 1.0 --max-translation 0.5 --max-angle-factor 0.25 --scene-scale 2 " \
@@ -49,8 +49,8 @@ def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
                 "scene_name": f"{scene}",
                 "downscale_factor": "2",
                 "num_points_reg": "5",
-                "num_points_unreg": "10",
-                "pretrain-iters": "20",
+                "num_points_unreg": "7",
+                "pretrain-iters": "25",
                 "unreg_data_dir": f"{data_dir}/",
                 "outputs_dir": f"{outputs_dir}"
             }
@@ -94,7 +94,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
             os.system(unregistered_scene_cmd.format(scene_seed))
 
         best_psnr = 0
-        for i in range(3):
+        for i in range(10):
             os.system(export_cmd_unreg.format(str(i)))
             os.system(registeration_cmd.format(str(i)))
 
