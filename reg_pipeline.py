@@ -8,6 +8,7 @@ import json
 
 
 def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
+    # Or
     if timestamp is None:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
         reconstruct_scenes = True
