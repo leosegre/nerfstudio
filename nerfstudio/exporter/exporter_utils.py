@@ -319,7 +319,7 @@ def generate_cameras_from_nf(
     dataparser_transforms: dict,
     num_points: int = 10,
     sample_ratio = 100,
-    min_depth: float = 0.8,
+    min_depth: float = 0.7,
     max_depth: float = 1.0,
     generate_masks = True,
 
