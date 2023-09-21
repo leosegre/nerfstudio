@@ -138,7 +138,7 @@ method_configs["register-nerfacto"] = TrainerConfig(
                 # mode="SO3xR3",
                 mode="SE3",
                 optimizer=SGDOptimizerConfig(lr=5e-3, eps=1e-8),
-                scheduler=ExponentialDecaySchedulerConfig(lr_final=5e-4, max_steps=10000),
+                scheduler=ExponentialDecaySchedulerConfig(lr_final=5e-4, max_steps=15000),
                 # scheduler=CosineDecaySchedulerConfig(max_steps=10000),
             ),
         ),

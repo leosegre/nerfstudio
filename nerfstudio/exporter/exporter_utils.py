@@ -319,7 +319,7 @@ def generate_cameras_from_nf(
     dataparser_transforms: dict,
     num_points: int = 10,
     sample_ratio = 100,
-    min_depth: float = 0.7,
+    min_depth: float = 0.8,
     max_depth: float = 1.0,
     generate_masks = True,
 
@@ -559,10 +559,10 @@ def collect_camera_poses(pipeline: VanillaPipeline) -> Tuple[List[Dict[str, Any]
 
 def get_mask_from_view_likelihood(image):
     # Normalize
-    colormap_max = 5
+    colormap_max = 1
     colormap_min = 0
     colormap_normalize = True
-    print(colormap_normalize)
+    # print(colormap_normalize)
     eps = 1e-6
     output = image
     # output = torch.nan_to_num(output)
@@ -584,7 +584,7 @@ def get_mask_from_view_likelihood(image):
     output_colormap = (output_colormap * 255).astype(np.uint8)
     output_colormap = cv.applyColorMap(output_colormap, cv.COLORMAP_TURBO)
 
-    threshold = 0.25
+    threshold = 0.1
     mask_output = (255 * (output >= threshold)).cpu().numpy()
 
     return mask_output, output_colormap

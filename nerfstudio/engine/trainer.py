@@ -344,8 +344,13 @@ class Trainer:
                                         self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = best_6dof
                                     pretrain_flag = False
                                     step = self._start_step
+                                    best_psnr = 0
                             else:
                                 loss, loss_dict, metrics_dict = self.train_iteration(step)
+                                if metrics_dict["psnr"] > best_psnr:
+                                    best_metrics_dict = metrics_dict
+                                    best_psnr = metrics_dict["psnr"]
+                                # print(best_psnr)
                         else:
                             # time the forward pass
                             loss, loss_dict, metrics_dict = self.train_iteration(step)
@@ -402,18 +407,19 @@ class Trainer:
         # write out any remaining events (e.g., total train time)
         writer.write_out_storage()
 
-        # Save the last iteration stats as txt file
-        stats_json = metrics_dict
-        stats_json_path = self.base_dir / "stats.json"
-        # Iterate through the keys and values in the input dictionary
-        for key, tensor in stats_json.items():
-            # Convert the tensor to a scalar by extracting the value
-            scalar_value = tensor.item() if isinstance(tensor, torch.Tensor) else tensor
-            # Add the scalar to the new dictionary
-            stats_json[key] = scalar_value
+        if self.pipeline.config.registration:
+            # Save the last iteration stats as txt file
+            stats_json = best_metrics_dict
+            stats_json_path = self.base_dir / "stats.json"
+            # Iterate through the keys and values in the input dictionary
+            for key, tensor in stats_json.items():
+                # Convert the tensor to a scalar by extracting the value
+                scalar_value = tensor.item() if isinstance(tensor, torch.Tensor) else tensor
+                # Add the scalar to the new dictionary
+                stats_json[key] = scalar_value
 
-        with open(stats_json_path, "w") as outfile:
-            json.dump(stats_json, outfile, indent=2)
+            with open(stats_json_path, "w") as outfile:
+                json.dump(stats_json, outfile, indent=2)
 
         CONSOLE.rule()
         CONSOLE.print("[bold green]:tada: :tada: :tada: Training Finished :tada: :tada: :tada:", justify="center")

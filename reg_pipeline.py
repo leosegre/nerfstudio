@@ -23,7 +23,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
     default_params_unregistered = " nerfstudio-data --train-split-fraction 1.0 --max-translation 0.5 --max-angle-factor 0.25 --scene-scale 2 " \
                                   "--registration True --orientation-method none --center-method none --auto-scale-poses False "
     default_params_registration = "ns-train register-nerfacto --viewer.quit-on-train-completion True --pipeline.model.predict-view-likelihood True --nf-first-iter 100000 " \
-                                  "--start-step 0 --pipeline.datamanager.train-num-rays-per-batch 32000 --max-num-iterations 10000 " \
+                                  "--start-step 0 --pipeline.datamanager.train-num-rays-per-batch 32000 --max-num-iterations 15000 " \
                                   "--pipeline.model.distortion-loss-mult 0 --pipeline.model.interlevel-loss-mult 0 --pipeline.registration True --vis viewer+tensorboard"
     default_params_registration_suffix = " nerfstudio-data --train-split-fraction 1.0 --max-translation 0.5 --max-angle-factor 0.25 --scene-scale 2 --registration True " \
                                          "--optimize_camera_registration True --load_registration True --orientation-method none --center-method none --auto-scale-poses False"
@@ -48,9 +48,9 @@ def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
                 "experiment_name": f"{scene}_{exp_type}",
                 "scene_name": f"{scene}",
                 "downscale_factor": "2",
-                "num_points_reg": "5",
+                "num_points_reg": "25",
                 "num_points_unreg": "7",
-                "pretrain-iters": "25",
+                "pretrain-iters": "10",
                 "unreg_data_dir": f"{data_dir}/",
                 "outputs_dir": f"{outputs_dir}"
             }
@@ -88,8 +88,9 @@ def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
                             + " --load_dir " + outputs_dir + exp["experiment_name"] + "_registered/nerfacto/" + timestamp + "/nerfstudio_models/" \
                             + default_params_registration_suffix + " --downscale_factor " + exp["downscale_factor"]
 
+        scene_seed = np.array(list(exp["scene_name"].encode('ascii'))).sum()
+
         if reconstruct_scenes:
-            scene_seed = np.array(list(exp["scene_name"].encode('ascii'))).sum()
             os.system(registered_scene_cmd.format(scene_seed))
             os.system(unregistered_scene_cmd.format(scene_seed))
 
