@@ -507,6 +507,12 @@ class NerfactoModel(Model):
         color_rgb = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2RGB)
         color_rgb = cv.normalize(color_rgb, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
 
+        # rgb_numpy_check = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2RGB)
+        # rgb_numpy_check = cv.normalize(rgb_numpy, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+        #
+        # cv.imwrite(
+        #     f"/home/leo/nerfstudio_reg/nerfstudio/check/render_step_{step}_{random.randint(0, 100)}.png",
+        #     rgb_numpy_check)
         # import ipdb; ipdb.set_trace()
 
         # FLANN parameters
