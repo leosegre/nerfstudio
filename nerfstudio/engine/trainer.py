@@ -341,8 +341,8 @@ class Trainer:
                                         print(best_6dof)
                                         self._update_register_cameras(step=step, pre_train=True)
 
-                                    ## If found match for more than 40% of the images - stop
-                                    if best_loss < (0.5 * 10):
+                                    ## If found match for more than 70% of the images - stop
+                                    if best_loss < (0.3 * 10):
                                         with torch.no_grad():
                                             self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = best_6dof
                                         pretrain_flag = False

@@ -97,7 +97,7 @@ for exp in exps:
     # os.system(export_cmd)
 
     best_psnr = 0
-    for i in range(3):
+    for i in range(10):
         os.system(registeration_cmd.format(str(i)))
         # import ipdb; ipdb.set_trace()
         # Read the stats of the registration

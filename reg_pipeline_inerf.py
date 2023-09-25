@@ -37,13 +37,13 @@ def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
             exp_params = {
                 "data1": f"{data_dir}/{scene}/transforms_{exp_type}_1.json",
                 "data2": f"{data_dir}/{scene}/transforms_{exp_type}_2.json",
-                "inerf_data": f"/home/leo/data/{scene}/inerf_{exp_type}_transforms.json",
+                "inerf_data": f"{data_dir}/{scene}/inerf_{exp_type}_transforms.json",
                 "experiment_name": f"{scene}_{exp_type}",
                 "scene_name": f"{scene}",
                 "downscale_factor": "2",
                 "num_points_reg": "25",
                 "num_points_unreg": "7",
-                "pretrain-iters": "50",
+                "pretrain-iters": "100",
                 "unreg_data_dir": f"{data_dir}/",
                 "outputs_dir": f"{outputs_dir}"
             }
@@ -68,7 +68,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
         scene_seed = np.array(list(exp["scene_name"].encode('ascii'))).sum()
 
         best_psnr = 0
-        for i in range(3):
+        for i in range(10):
             os.system(registeration_cmd.format(str(i)))
 
             # Read the stats of the registration
