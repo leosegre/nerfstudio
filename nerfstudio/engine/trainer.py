@@ -303,7 +303,7 @@ class Trainer:
                             elif pretrain_flag:
                                 if step == self._start_step:
                                     metrics_dict = self.pipeline.get_average_train_image_metrics(step)
-                                    best_loss = metrics_dict["loss"]
+                                    best_viewshed_score = metrics_dict["viewshed_score"]
                                     best_6dof = self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :]
                                     if self.pretrain_iters == 0:
                                         pretrain_flag = False
@@ -327,27 +327,22 @@ class Trainer:
 
                                     with torch.no_grad():
                                         self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = random_6dof
+
                                     metrics_dict = self.pipeline.get_average_train_image_metrics(step)
-                                    # if step == 5:
-                                    #     best_loss = metrics_dict["loss"]
-                                    #     best_6dof = random_6dof
-                                    #     print("step:", step, ", loss:", best_loss)
-                                    #     print(best_6dof)
-                                    #     self._update_register_cameras(step=step, pre_train=True)
-                                    if metrics_dict["loss"] < best_loss:
-                                        best_loss = metrics_dict["loss"]
+                                    if metrics_dict["viewshed_score"] > best_viewshed_score:
+                                        best_viewshed_score = metrics_dict["viewshed_score"]
                                         best_6dof = random_6dof
-                                        print("step:", step, ", loss:", best_loss)
+                                        print("step:", step, ", viewshed_score:", best_viewshed_score)
                                         print(best_6dof)
                                         self._update_register_cameras(step=step, pre_train=True)
 
-                                    ## If found match for more than 70% of the images - stop
-                                    if best_loss < (0.3 * 10):
-                                        with torch.no_grad():
-                                            self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = best_6dof
-                                        pretrain_flag = False
-                                        step = self._start_step
-                                        best_psnr = 0
+                                    # ## If found match for more than 70% of the images - stop
+                                    # if best_loss < (0.3 * 10):
+                                    #     with torch.no_grad():
+                                    #         self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = best_6dof
+                                    #     pretrain_flag = False
+                                    #     step = self._start_step
+                                    #     best_psnr = 0
                                 elif step == num_pretrain:
                                     with torch.no_grad():
                                         self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = best_6dof

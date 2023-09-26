@@ -50,7 +50,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
                 "downscale_factor": "2",
                 "num_points_reg": "25",
                 "num_points_unreg": "7",
-                "pretrain-iters": "100",
+                "pretrain-iters": "15",
                 "unreg_data_dir": f"{data_dir}/",
                 "outputs_dir": f"{outputs_dir}"
             }
@@ -95,9 +95,9 @@ def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
             os.system(unregistered_scene_cmd.format(scene_seed))
 
         best_psnr = 0
-        for i in range(3):
-            os.system(export_cmd_unreg.format(str(i)))
-            os.system(registeration_cmd.format(str(i)))
+        for i in range(1, 6):
+            os.system(export_cmd_unreg.format(str(scene_seed*i)))
+            os.system(registeration_cmd.format(str(scene_seed*i)))
 
             # Read the stats of the registration
             exp_stats_path = outputs_dir + exp["experiment_name"] + "_registration/nerfacto/" + timestamp + "/stats.json"

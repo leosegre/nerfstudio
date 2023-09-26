@@ -557,11 +557,10 @@ def collect_camera_poses(pipeline: VanillaPipeline) -> Tuple[List[Dict[str, Any]
     return train_frames, eval_frames
 
 
-def get_mask_from_view_likelihood(image):
+def get_mask_from_view_likelihood(image, colormap_normalize=True):
     # Normalize
     colormap_max = 1
     colormap_min = 0
-    colormap_normalize = True
     # print(colormap_normalize)
     eps = 1e-6
     output = image

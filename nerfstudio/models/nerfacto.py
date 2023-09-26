@@ -493,152 +493,165 @@ class NerfactoModel(Model):
         ssim = self.ssim(torch_image, torch_rgb)
         lpips = self.lpips(torch_image, torch_rgb)
 
-        image_numpy = image.cpu().numpy()
-        rgb_numpy = rgb.cpu().numpy()
-        image_mask_numpy = image_mask.cpu().numpy().astype(np.uint8)
-        rgb_mask_numpy = rgb_mask_numpy.astype(np.uint8)
+        if False:
+            image_numpy = image.cpu().numpy()
+            rgb_numpy = rgb.cpu().numpy()
+            image_mask_numpy = image_mask.cpu().numpy().astype(np.uint8)
+            rgb_mask_numpy = rgb_mask_numpy.astype(np.uint8)
 
-        # gray_image = cv.cvtColor(image_numpy, cv.COLOR_BGR2GRAY)
-        # gray_image = cv.normalize(gray_image, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
-        # gray_rgb = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2GRAY)
-        # gray_rgb = cv.normalize(gray_rgb, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
-        color_image = cv.cvtColor(image_numpy, cv.COLOR_BGR2RGB)
-        color_image = cv.normalize(color_image, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
-        color_rgb = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2RGB)
-        color_rgb = cv.normalize(color_rgb, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+            # gray_image = cv.cvtColor(image_numpy, cv.COLOR_BGR2GRAY)
+            # gray_image = cv.normalize(gray_image, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+            # gray_rgb = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2GRAY)
+            # gray_rgb = cv.normalize(gray_rgb, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+            color_image = cv.cvtColor(image_numpy, cv.COLOR_BGR2RGB)
+            color_image = cv.normalize(color_image, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+            color_rgb = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2RGB)
+            color_rgb = cv.normalize(color_rgb, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
 
-        # rgb_numpy_check = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2RGB)
-        # rgb_numpy_check = cv.normalize(rgb_numpy, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
-        #
-        # cv.imwrite(
-        #     f"/home/leo/nerfstudio_reg/nerfstudio/check/render_step_{step}_{random.randint(0, 100)}.png",
-        #     rgb_numpy_check)
-        # import ipdb; ipdb.set_trace()
+            # rgb_numpy_check = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2RGB)
+            # rgb_numpy_check = cv.normalize(rgb_numpy, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+            #
+            # cv.imwrite(
+            #     f"/home/leo/nerfstudio_reg/nerfstudio/check/render_step_{step}_{random.randint(0, 100)}.png",
+            #     rgb_numpy_check)
+            # import ipdb; ipdb.set_trace()
 
-        # FLANN parameters
-        FLANN_INDEX_KDTREE = 1
-        MIN_MATCH_COUNT = 10
+            # FLANN parameters
+            FLANN_INDEX_KDTREE = 1
+            MIN_MATCH_COUNT = 10
 
-        if rgb_mask_numpy.any() and image_mask_numpy.any():
-            # Calculate Homography
-            sift = cv.SIFT_create()
-            kp_image, des_image = sift.detectAndCompute(color_image, image_mask_numpy)
-            kp_rgb, des_rgb = sift.detectAndCompute(color_rgb, None)
+            if rgb_mask_numpy.any() and image_mask_numpy.any():
+                # Calculate Homography
+                sift = cv.SIFT_create()
+                kp_image, des_image = sift.detectAndCompute(color_image, image_mask_numpy)
+                kp_rgb, des_rgb = sift.detectAndCompute(color_rgb, None)
 
-            # image_numpy = cv.normalize(image_numpy, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
-            # rgb_numpy = cv.normalize(rgb_numpy, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
-            # # Calculate Homography
-            # sift = cv.SIFT_create()
-            # kp_image, des_image = sift.detectAndCompute(image_numpy, None)
-            # kp_rgb, des_rgb = sift.detectAndCompute(rgb_numpy, None)
+                # image_numpy = cv.normalize(image_numpy, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+                # rgb_numpy = cv.normalize(rgb_numpy, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+                # # Calculate Homography
+                # sift = cv.SIFT_create()
+                # kp_image, des_image = sift.detectAndCompute(image_numpy, None)
+                # kp_rgb, des_rgb = sift.detectAndCompute(rgb_numpy, None)
 
-            # img2 = cv.drawKeypoints(image_numpy, kp_image, None)
-            # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/step_{step}_image_siftkpgray.jpg", img2)
-            # img2 = cv.drawKeypoints(rgb_numpy, kp_rgb, None)
-            # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/step_{step}_rgb_siftkpgray.jpg", img2)
-
-
-            index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
-            search_params = dict(checks=50)  # or pass empty dictionary
-            flann = cv.FlannBasedMatcher(index_params, search_params)
-
-            bf = cv.BFMatcher(crossCheck=True)
-        else:
-            kp_rgb = []
-            print("Skipped - All image masked")
-
-        if len(kp_rgb) == 0:
-            matches = []
-        else:
-            # matches = flann.knnMatch(des_image, des_rgb, k=2)
-            matches = bf.knnMatch(des_image, des_rgb, k=1)
-        # print("step:", step, "matches:", len(matches))
-
-        # Need to draw only good matches, so create a mask
-        good = []
-        # ratio test as per Lowe's paper
-        for i, m in enumerate(matches):
-            if len(m) > 0:
-                good.append(m[0])
-        # print("step:", step, "good:", len(good))
+                # img2 = cv.drawKeypoints(image_numpy, kp_image, None)
+                # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/step_{step}_image_siftkpgray.jpg", img2)
+                # img2 = cv.drawKeypoints(rgb_numpy, kp_rgb, None)
+                # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/step_{step}_rgb_siftkpgray.jpg", img2)
 
 
-        if len(good) > MIN_MATCH_COUNT:
-            src_pts = np.float32([kp_image[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
-            dst_pts = np.float32([kp_rgb[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
-            M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 7.0)
-            matchesMask = mask.ravel().tolist()
-            if np.array(matchesMask).sum() == 0:
-                print("matchesMask is 0 for in all entries")
+                index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
+                search_params = dict(checks=50)  # or pass empty dictionary
+                flann = cv.FlannBasedMatcher(index_params, search_params)
+
+                bf = cv.BFMatcher(crossCheck=True)
+            else:
+                kp_rgb = []
+                print("Skipped - All image masked")
+
+            if len(kp_rgb) == 0:
+                matches = []
+            else:
+                # matches = flann.knnMatch(des_image, des_rgb, k=2)
+                matches = bf.knnMatch(des_image, des_rgb, k=1)
+            # print("step:", step, "matches:", len(matches))
+
+            # Need to draw only good matches, so create a mask
+            good = []
+            # ratio test as per Lowe's paper
+            for i, m in enumerate(matches):
+                if len(m) > 0:
+                    good.append(m[0])
+            # print("step:", step, "good:", len(good))
+
+
+            if len(good) > MIN_MATCH_COUNT:
+                src_pts = np.float32([kp_image[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
+                dst_pts = np.float32([kp_rgb[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
+                M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 7.0)
+                matchesMask = mask.ravel().tolist()
+                if np.array(matchesMask).sum() == 0:
+                    print("matchesMask is 0 for in all entries")
+                    matchesMask = None
+                else:
+                    h, w = color_image.shape[:-1]
+                    pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
+                    dst = cv.perspectiveTransform(pts, M)
+                    color_rgb_poly = cv.polylines(color_rgb, [np.int32(dst)], True, (0, 0, 255), 3, cv.LINE_AA)
+
+                    draw_params = dict(matchColor=(0, 255, 0),
+                                       singlePointColor=None,
+                                       matchesMask=None,
+                                       flags=2)
+                    # img3 = cv.drawMatches(color_image, kp_image, color_rgb_poly, kp_rgb, good, None, **draw_params)
+                    # print("Found - {} matches".format(len(good)))
+                    # print(np.linalg.det(M))
+                    # img2 = cv.drawKeypoints(gray_rgb, kp_rgb, None)
+                    # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/step_{step}_rgb_siftkpgray_{len(good)}.jpg", img3)
+            else:
+                # img2 = cv.drawKeypoints(rgb_numpy, kp_rgb, None)
+                # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/step_{step}_rgb_siftkpgray_{len(good)}.jpg", img2)
+                print("Not enough matches are found - {}/{}".format(len(good), MIN_MATCH_COUNT))
                 matchesMask = None
-            else:
-                h, w = color_image.shape[:-1]
-                pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
-                dst = cv.perspectiveTransform(pts, M)
-                color_rgb_poly = cv.polylines(color_rgb, [np.int32(dst)], True, (0, 0, 255), 3, cv.LINE_AA)
 
-                draw_params = dict(matchColor=(0, 255, 0),
-                                   singlePointColor=None,
-                                   matchesMask=None,
-                                   flags=2)
-                # img3 = cv.drawMatches(color_image, kp_image, color_rgb_poly, kp_rgb, good, None, **draw_params)
-                # print("Found - {} matches".format(len(good)))
-                # print(np.linalg.det(M))
-                # img2 = cv.drawKeypoints(gray_rgb, kp_rgb, None)
-                # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/step_{step}_rgb_siftkpgray_{len(good)}.jpg", img3)
-        else:
-            # img2 = cv.drawKeypoints(rgb_numpy, kp_rgb, None)
-            # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/step_{step}_rgb_siftkpgray_{len(good)}.jpg", img2)
-            print("Not enough matches are found - {}/{}".format(len(good), MIN_MATCH_COUNT))
-            matchesMask = None
+            # image_numpy2 = cv.cvtColor(image_numpy, cv.COLOR_BGR2RGB)
+            # image_numpy2 = cv.normalize(image_numpy2, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+            # rgb_numpy2 = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2RGB)
+            # rgb_numpy2 = cv.normalize(rgb_numpy2, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+            #
+            # cv.imwrite(
+            #     f"/home/leo/nerfstudio_reg/nerfstudio/check/homography_step_{step}_random_{random.randint(0, 100)}.png",
+            #     np.concatenate((image_numpy2, rgb_numpy2), axis=1))
 
-        # image_numpy2 = cv.cvtColor(image_numpy, cv.COLOR_BGR2RGB)
-        # image_numpy2 = cv.normalize(image_numpy2, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
-        # rgb_numpy2 = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2RGB)
-        # rgb_numpy2 = cv.normalize(rgb_numpy2, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
-        #
-        # cv.imwrite(
-        #     f"/home/leo/nerfstudio_reg/nerfstudio/check/homography_step_{step}_random_{random.randint(0, 100)}.png",
-        #     np.concatenate((image_numpy2, rgb_numpy2), axis=1))
-
-        if matchesMask == None:
-            loss = 10
-        else:
-
-            # map src to dst
-            im_image_dst = cv.warpPerspective(image_numpy, M, (w, h))
-            mask = np.ones(image_numpy.shape, dtype=np.uint8)
-            mask = cv.warpPerspective(mask, M, (w, h))
-
-            threshold = 0.5
-            precentage = mask.sum() / (mask.shape[0] * mask.shape[1] * 3)
-
-
-            det = np.linalg.det(M)
-            if 0.1 < det < 10 and precentage > threshold:
-                image_numpy = cv.cvtColor(image_numpy, cv.COLOR_BGR2RGB)
-                image_numpy = cv.normalize(image_numpy, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
-                im_image_dst = cv.cvtColor(im_image_dst, cv.COLOR_BGR2RGB)
-                im_image_dst = cv.normalize(im_image_dst, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
-                rgb_numpy = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2RGB)
-                rgb_numpy = cv.normalize(rgb_numpy, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
-
-                rgb_for_loss = torch.from_numpy(np.moveaxis(rgb_numpy*mask, -1, 0)).to(dtype=float)
-                image_for_loss = torch.from_numpy(np.moveaxis(im_image_dst, -1, 0)).to(dtype=float)
-                loss = self.rgb_loss(image_for_loss.unsqueeze(0), rgb_for_loss.unsqueeze(0)) / mask.sum()
-
-                cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/homography_step_{step}_loss_{loss:.7f}_det_{det:.4f}.png",
-                           np.concatenate((image_numpy, im_image_dst, rgb_numpy), axis=1))
-            else:
+            if matchesMask == None:
                 loss = 10
+            else:
+
+                # map src to dst
+                im_image_dst = cv.warpPerspective(image_numpy, M, (w, h))
+                mask = np.ones(image_numpy.shape, dtype=np.uint8)
+                mask = cv.warpPerspective(mask, M, (w, h))
+
+                threshold = 0.5
+                precentage = mask.sum() / (mask.shape[0] * mask.shape[1] * 3)
 
 
-            # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/image_loss_{loss:.0f}.png", img3)
+                det = np.linalg.det(M)
+                if 0.1 < det < 10 and precentage > threshold:
+                    image_numpy = cv.cvtColor(image_numpy, cv.COLOR_BGR2RGB)
+                    image_numpy = cv.normalize(image_numpy, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+                    im_image_dst = cv.cvtColor(im_image_dst, cv.COLOR_BGR2RGB)
+                    im_image_dst = cv.normalize(im_image_dst, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+                    rgb_numpy = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2RGB)
+                    rgb_numpy = cv.normalize(rgb_numpy, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+
+                    rgb_for_loss = torch.from_numpy(np.moveaxis(rgb_numpy*mask, -1, 0)).to(dtype=float)
+                    image_for_loss = torch.from_numpy(np.moveaxis(im_image_dst, -1, 0)).to(dtype=float)
+                    loss = self.rgb_loss(image_for_loss.unsqueeze(0), rgb_for_loss.unsqueeze(0)) / mask.sum()
+
+                    cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/homography_step_{step}_loss_{loss:.7f}_det_{det:.4f}.png",
+                               np.concatenate((image_numpy, im_image_dst, rgb_numpy), axis=1))
+                else:
+                    loss = 10
+
+
+                # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/image_loss_{loss:.0f}.png", img3)
+
+        viewshed = outputs["view_log_likelihood"]
+        # Find the minimum non-NaN value
+        min_value = torch.min(viewshed[~torch.isnan(viewshed)])
+        # Replace NaN values with the minimum non-NaN value
+        viewshed[torch.isnan(viewshed)] = min_value
+        # print("before exp:", output.min(), output.max())
+        viewshed = torch.exp(viewshed)
+        viewshed = torch.nan_to_num(viewshed)
+
+        viewshed_score = viewshed.sum()
 
         # all of these metrics will be logged as scalars
         metrics_dict = {"psnr": float(psnr.item()), "ssim": float(ssim)}  # type: ignore
         metrics_dict["lpips"] = float(lpips)
-        metrics_dict["loss"] = float(loss)
+        # metrics_dict["loss"] = float(loss)
+        metrics_dict["viewshed_score"] = float(viewshed_score)
 
         images_dict = {"img": combined_rgb, "accumulation": combined_acc, "depth": combined_depth}
 

@@ -11,7 +11,7 @@ def main(reg_pipline):
 
     for scene_name in scene_names:
         for exp_type in exp_types:
-            cmd = f"runai submit --pvc=storage:/storage -i leosegre/nerfstudio_reg --name leo-{scene_name}-{exp_type}-{reg_pipline.replace('_', '-').replace('reg-pipeline', '')} " \
+            cmd = f"runai submit --pvc=storage:/storage -i leosegre/nerfstudio_reg --name leo-{scene_name}-{exp_type}{reg_pipline.replace('_', '-').replace('reg-pipeline', '')} " \
                   f"-g 1 --large-shm --command -- bash entrypoint.sh python {reg_pipline}.py " \
                   f"/storage/leo/data /storage/leo/outputs/ {scene_name} {exp_type.replace('-', '_')} {timestamps[scene_name]}"
             os.system(cmd)

@@ -68,7 +68,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
         scene_seed = np.array(list(exp["scene_name"].encode('ascii'))).sum()
 
         best_psnr = 0
-        for i in range(10):
+        for i in range(1, 6):
             os.system(registeration_cmd.format(str(i)))
 
             # Read the stats of the registration
