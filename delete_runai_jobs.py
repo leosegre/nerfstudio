@@ -6,7 +6,7 @@ def main(reg_pipline):
 
     for scene_name in scene_names:
         for exp_type in exp_types:
-            cmd = f"runai delete job leo-{scene_name}-{exp_type}{reg_pipline.replace('_', '-').replace('reg-pipeline', '')}"
+            cmd = f"runai delete job leo2-{scene_name}-{exp_type}{reg_pipline.replace('_', '-').replace('reg-pipeline', '')}"
             # cmd = f"runai delete job leo-{scene_name}-{exp_type}-{reg_pipline.replace('_', '-')}"
             os.system(cmd)
 

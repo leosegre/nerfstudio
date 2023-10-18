@@ -7,7 +7,7 @@ import numpy as np
 import json
 
 
-def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
+def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=None):
     if timestamp is None:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
         reconstruct_scenes = True
@@ -17,7 +17,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
     # timestamp = "2023-07-26_101624"
     print(timestamp)
 
-    default_params = "ns-train nerfacto --viewer.quit-on-train-completion True --max-num-iterations 45000 --nf-first-iter 40000 --pipeline.datamanager.train-num-rays-per-batch 1024 " \
+    default_params = "ns-train nerfacto --viewer.quit-on-train-completion True --max-num-iterations 43000 --nf-first-iter 40000 --pipeline.datamanager.train-num-rays-per-batch 1024 " \
                      "--pipeline.model.predict-view-likelihood True --pipeline.datamanager.camera-optimizer.mode off --vis tensorboard "
     default_params_registered = " nerfstudio-data --auto_scale_poses True --train-split-fraction 1.0 --center-method focus --orientation-method up --scene-scale 2 "
     default_params_unregistered = " nerfstudio-data --train-split-fraction 1.0 --max-translation 0.5 --max-angle-factor 0.25 --scene-scale 2 " \
@@ -47,10 +47,10 @@ def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
                 "data2": f"{data_dir}/{scene}/transforms_{exp_type}_2.json",
                 "experiment_name": f"{scene}_{exp_type}",
                 "scene_name": f"{scene}",
-                "downscale_factor": "2",
+                "downscale_factor": f"{downscale}",
                 "num_points_reg": "25",
                 "num_points_unreg": "10",
-                "pretrain-iters": "50",
+                "pretrain-iters": "25",
                 "unreg_data_dir": f"{data_dir}/",
                 "outputs_dir": f"{outputs_dir}"
             }
@@ -119,23 +119,25 @@ def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
         json.dump(total_stats, outfile, indent=2)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 5 and len(sys.argv) != 6:
-        print("Usage: python reg_pipeline.py <data_directory> <output_directory> <scene_names> <exp_types> <<timestamp>>")
+    if len(sys.argv) != 6 and len(sys.argv) != 7:
+        print("Usage: python reg_pipeline.py <data_directory> <output_directory> <scene_names> <exp_types> <downscale> <<timestamp>>")
     else:
         base_directory = sys.argv[1]
         output_directory = sys.argv[2]
         scene_names = sys.argv[3].split(',')
         exp_types = sys.argv[4].split(',')
+        downscale = sys.argv[5]
+
         if not os.path.isdir(base_directory):
             print(f"Error: {base_directory} is not a valid directory.")
         elif not os.path.isdir(output_directory):
             print(f"Error: {output_directory} is not a valid directory.")
         else:
-            if len(sys.argv) == 6:
-                timestamp = sys.argv[5]
-                main(base_directory, output_directory, scene_names, exp_types, timestamp)
+            if len(sys.argv) == 7:
+                timestamp = sys.argv[6]
+                main(base_directory, output_directory, scene_names, exp_types, downscale, timestamp)
             else:
-                main(base_directory, output_directory, scene_names, exp_types)
+                main(base_directory, output_directory, scene_names, exp_types, downscale)
 
 
 
