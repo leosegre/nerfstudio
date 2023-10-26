@@ -562,7 +562,8 @@ def get_mask_from_view_likelihood(image, colormap_normalize=True):
     colormap_max = 1
     colormap_min = 0
     # print(colormap_normalize)
-    eps = 1e-6
+    # eps = 1e-6
+    eps = 1
     output = image
     # output = torch.nan_to_num(output)
     # Find the minimum non-NaN value
