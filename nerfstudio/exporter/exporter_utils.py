@@ -557,14 +557,13 @@ def collect_camera_poses(pipeline: VanillaPipeline) -> Tuple[List[Dict[str, Any]
     return train_frames, eval_frames
 
 
-def get_mask_from_view_likelihood(image, colormap_normalize=True):
+def get_mask_from_view_likelihood(images, colormap_normalize=True):
     # Normalize
     colormap_max = 1
     colormap_min = 0
     # print(colormap_normalize)
-    # eps = 1e-6
-    eps = 10
-    output = image
+    eps = 1e-6
+    output = images
     # output = torch.nan_to_num(output)
     # Find the minimum non-NaN value
     min_value = torch.min(output[~torch.isnan(output)])
@@ -582,7 +581,8 @@ def get_mask_from_view_likelihood(image, colormap_normalize=True):
     output_colormap = torch.clip(output, 0, 1)
     output_colormap = output_colormap.cpu().numpy()
     output_colormap = (output_colormap * 255).astype(np.uint8)
-    output_colormap = cv.applyColorMap(output_colormap, cv.COLORMAP_TURBO)
+    for i in range(output_colormap.shape[0]):
+        output_colormap[i] = cv.applyColorMap(output_colormap[i], cv.COLORMAP_TURBO)
 
     threshold = 0.3
     mask_output = (255 * (output >= threshold)).cpu().numpy()

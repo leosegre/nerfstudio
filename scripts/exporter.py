@@ -258,15 +258,15 @@ class ExportTransformsNF(Exporter):
         if not os.path.exists(masks_dir):
             os.mkdir(masks_dir)
 
+        mask_output, output_colormap = get_mask_from_view_likelihood(view_likelihood_images)
 
         for i in reversed(range(self.num_points)):
-            mask_output, output_colormap = get_mask_from_view_likelihood(view_likelihood_images[i])
 
             # if (mask_output.sum() / (255 * mask_output.size)) <= 0.5:
             #     transforms["frames"].pop(i)
 
-            cv.imwrite(f"{masks_dir}/{self.mask_output_name}_{i}.png", mask_output)
-            cv.imwrite(f"{images_dir}/{self.view_likelihood_output_name}_{i}.png", output_colormap)
+            cv.imwrite(f"{masks_dir}/{self.mask_output_name}_{i}.png", mask_output[i])
+            cv.imwrite(f"{images_dir}/{self.view_likelihood_output_name}_{i}.png", output_colormap[i])
 
             color_images[i] = cv.cvtColor(color_images[i], cv.COLOR_BGR2RGB)
             cv.imwrite(f"{images_dir}/{self.rgb_output_name}_{i}.png", color_images[i])
