@@ -570,7 +570,10 @@ def get_mask_from_view_likelihood(images, colormap_normalize=True):
     # Replace NaN values with the minimum non-NaN value
     output[torch.isnan(output)] = min_value
     # print("before exp:", output.min(), output.max())
+    # print(torch.amax(output, (1, 2, 3)))
     output = torch.exp(output)
+    # print(torch.amax(output, (1, 2, 3)))
+
     # output = torch.clip(output, 0, 100)
     # print("after exp:", output.min(), output.max())
     if colormap_normalize:
@@ -578,13 +581,14 @@ def get_mask_from_view_likelihood(images, colormap_normalize=True):
         output = output / (torch.max(output) + eps)
     output = output * (colormap_max - colormap_min) + colormap_min
     output = torch.nan_to_num(output)
-    output_colormap = torch.clip(output, 0, 1)
-    output_colormap = output_colormap.cpu().numpy()
-    output_colormap = (output_colormap * 255).astype(np.uint8)
-    for i in range(output_colormap.shape[0]):
-        output_colormap[i] = cv.applyColorMap(output_colormap[i], cv.COLORMAP_TURBO)
+    output_colormap_flat = torch.clip(output, 0, 1)
+    output_colormap_flat = output_colormap_flat.cpu().numpy()
+    output_colormap_flat = (output_colormap_flat * 255).astype(np.uint8)
+    output_colormap = np.zeros((output_colormap_flat.shape[0], output_colormap_flat.shape[1], output_colormap_flat.shape[2], 3))
+    for i in range(output_colormap_flat.shape[0]):
+        output_colormap[i] = cv.applyColorMap(output_colormap_flat[i], cv.COLORMAP_TURBO)
 
-    threshold = 0.3
+    threshold = 0.1
     mask_output = (255 * (output >= threshold)).cpu().numpy()
 
     return mask_output, output_colormap

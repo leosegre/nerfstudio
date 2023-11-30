@@ -258,6 +258,8 @@ class ExportTransformsNF(Exporter):
         if not os.path.exists(masks_dir):
             os.mkdir(masks_dir)
 
+
+
         mask_output, output_colormap = get_mask_from_view_likelihood(view_likelihood_images)
 
         for i in reversed(range(self.num_points)):
