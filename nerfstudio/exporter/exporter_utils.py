@@ -318,7 +318,7 @@ def generate_cameras_from_nf(
     pipeline: Pipeline,
     dataparser_transforms: dict,
     num_points: int = 10,
-    sample_ratio = 100,
+    sample_ratio = 2,
     min_depth: float = 0.8,
     max_depth: float = 1.0,
     generate_masks = True,
@@ -582,6 +582,7 @@ def get_mask_from_view_likelihood(images, colormap_normalize=True):
     output = output * (colormap_max - colormap_min) + colormap_min
     output = torch.nan_to_num(output)
     output_colormap_flat = torch.clip(output, 0, 1)
+    output_colormap_flat = torch.sqrt(output_colormap_flat)
     output_colormap_flat = output_colormap_flat.cpu().numpy()
     output_colormap_flat = (output_colormap_flat * 255).astype(np.uint8)
     output_colormap = np.zeros((output_colormap_flat.shape[0], output_colormap_flat.shape[1], output_colormap_flat.shape[2], 3))

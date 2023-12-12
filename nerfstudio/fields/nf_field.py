@@ -84,6 +84,7 @@ class NFField(Field):
             # Last layer is initialized by zeros making training more stable
             # param_map = nf.nets.MLP([3, 64, 64, 6], init_zeros=True)
             param_map = nf.nets.MLP([int(num_dims/2), hidden_dim, hidden_dim, num_dims], init_zeros=True, leaky=0.1, dropout=0.2)
+            # param_map = nf.nets.MLP([int(num_dims/2), hidden_dim, hidden_dim, num_dims], init_zeros=True)
             # Add flow layer
             flows.append(nf.flows.AffineCouplingBlock(param_map, scale_map="exp"))
             # Swap dimensions

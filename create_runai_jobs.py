@@ -8,14 +8,14 @@ def main(reg_pipline):
                   "horns": "2023-09-20_100939",
                   "room": "2023-09-20_122957"}
     exp_types = ["0-100-even-odd", "30-70-even-odd", "50-50"]
-    downscale = 4
+    downscale = 2
 
     for scene_name in scene_names:
         for exp_type in exp_types:
             cmd = f"runai submit --pvc=storage:/storage -i leosegre/nerfstudio_reg --name leo3-{scene_name}-{exp_type}{reg_pipline.replace('_', '-').replace('reg-pipeline', '')} " \
                   f"-g 1 --large-shm --command -- bash entrypoint.sh python {reg_pipline}.py " \
-                  f"/storage/leo/data /storage/leo/outputs/ {scene_name} {exp_type.replace('-', '_')} {downscale} {timestamps[scene_name]}"
-            # f"/storage/leo/data /storage/leo/outputs/ {scene_name} {exp_type.replace('-', '_')}"
+                  f"/storage/leo/data /storage/leo/outputs/ {scene_name} {exp_type.replace('-', '_')} {downscale}"
+            # f"/storage/leo/data /storage/leo/outputs/ {scene_name} {exp_type.replace('-', '_')} {downscale} {timestamps[scene_name]}"
 
             os.system(cmd)
 
