@@ -7,7 +7,7 @@ import numpy as np
 import json
 
 
-def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=None):
+def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=None, repeat_reg=1):
     if timestamp is None:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
         reconstruct_scenes = True
@@ -95,7 +95,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
             os.system(unregistered_scene_cmd.format(scene_seed))
 
         best_psnr = 0
-        for i in range(1, 11):
+        for i in range(1, repeat_reg+1):
             os.system(export_cmd_unreg.format(str(scene_seed*i)))
             os.system(registeration_cmd.format(str(scene_seed*i)))
 
