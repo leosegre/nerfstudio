@@ -1,0 +1,8 @@
+{
+  "fortress_30_70_even_odd": {
+    "psnr": 15.66739559173584,
+    "distortion": 0.004163828678429127,
+    "rotation_rmse": 12.190693855285645,
+    "translation_rmse": 0.2855915129184723
+  }
+}

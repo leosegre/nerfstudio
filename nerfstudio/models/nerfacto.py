@@ -645,7 +645,7 @@ class NerfactoModel(Model):
         viewshed = torch.exp(viewshed)
         viewshed = torch.nan_to_num(viewshed)
 
-        viewshed_score = viewshed.sum()
+        viewshed_score = viewshed[image_mask].sum()
 
         # all of these metrics will be logged as scalars
         metrics_dict = {"psnr": float(psnr.item()), "ssim": float(ssim)}  # type: ignore
