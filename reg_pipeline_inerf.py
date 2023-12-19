@@ -7,7 +7,7 @@ import numpy as np
 import json
 
 
-def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
+def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=None):
     if timestamp is None:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
         reconstruct_scenes = True
@@ -40,7 +40,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
                 "inerf_data": f"{data_dir}/{scene}/inerf_{exp_type}_transforms.json",
                 "experiment_name": f"{scene}_{exp_type}",
                 "scene_name": f"{scene}",
-                "downscale_factor": "2",
+                "downscale_factor": f"{downscale}",
                 "num_points_reg": "25",
                 "num_points_unreg": "10",
                 "pretrain-iters": "25",
@@ -93,22 +93,24 @@ def main(data_dir, outputs_dir, scene_names, exp_types, timestamp=None):
 
 if __name__ == "__main__":
     if len(sys.argv) != 5 and len(sys.argv) != 6:
-        print("Usage: python reg_pipeline.py <data_directory> <output_directory> <scene_names> <exp_types> <<timestamp>>")
+        print("Usage: python reg_pipeline.py <data_directory> <output_directory> <scene_names> <exp_types>  <downscale> <<timestamp>>")
     else:
         base_directory = sys.argv[1]
         output_directory = sys.argv[2]
         scene_names = sys.argv[3].split(',')
         exp_types = sys.argv[4].split(',')
+        downscale = sys.argv[5]
+
         if not os.path.isdir(base_directory):
             print(f"Error: {base_directory} is not a valid directory.")
         elif not os.path.isdir(output_directory):
             print(f"Error: {output_directory} is not a valid directory.")
         else:
-            if len(sys.argv) == 6:
-                timestamp = sys.argv[5]
-                main(base_directory, output_directory, scene_names, exp_types, timestamp)
+            if len(sys.argv) == 7:
+                timestamp = sys.argv[6]
+                main(base_directory, output_directory, scene_names, exp_types,  downscale, timestamp)
             else:
-                main(base_directory, output_directory, scene_names, exp_types)
+                main(base_directory, output_directory, scene_names, exp_types, downscale)
 
 
 
