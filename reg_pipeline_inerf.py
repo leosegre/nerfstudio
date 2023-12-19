@@ -92,8 +92,8 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
         json.dump(total_stats, outfile, indent=2)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 5 and len(sys.argv) != 6:
-        print("Usage: python reg_pipeline.py <data_directory> <output_directory> <scene_names> <exp_types>  <downscale> <<timestamp>>")
+    if len(sys.argv) != 6 and len(sys.argv) != 7:
+        print("Usage: python reg_pipeline.py <data_directory> <output_directory> <scene_names> <exp_types> <downscale> <<timestamp>>")
     else:
         base_directory = sys.argv[1]
         output_directory = sys.argv[2]
