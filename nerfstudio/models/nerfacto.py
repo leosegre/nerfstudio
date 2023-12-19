@@ -340,7 +340,45 @@ class NerfactoModel(Model):
             # nf_field_outputs = self.nf_field.get_outputs(ray_samples[np.arange(len(ray_samples)), argmax_weights])
             # outputs["view_log_likelihood"] = nf_field_outputs[FieldHeadNames.VIEW_LOG_LIKELIHOOD]
 
+            def ray_sphere_intersection_batch(origins, directions, centers, radii):
+                # Calculate the coefficients of the quadratic equation
+                a = torch.sum(directions ** 2, dim=-1)
+                oc = origins - centers
+                b = 2 * torch.sum(oc * directions, dim=-1)
+                c = torch.sum(oc ** 2, dim=-1) - radii ** 2
+
+                # Calculate the discriminant
+                discriminant = b ** 2 - 4 * a * c
+
+                # Find the values of t where the ray intersects the sphere
+                t1 = (-b - torch.sqrt(discriminant)) / (2 * a)
+                t2 = (-b + torch.sqrt(discriminant)) / (2 * a)
+
+                # Choose the intersection points corresponding to the smaller t value
+                t_min = torch.min(t1, t2)
+                t_max = torch.max(t1, t2)
+                intersection_points = origins + t_min.unsqueeze(-1) * directions
+                return intersection_points
+
+            def ray_plane_intersection_batch(origins, directions, plane_axis, plane_coordinate):
+                # Ensure the direction is normalized
+                directions = directions / torch.norm(directions, dim=-1, keepdim=True)
+
+                # Calculate the parameter t for the intersection with the plane
+                t = (plane_coordinate - origins[:, plane_axis]) / directions[:, plane_axis]
+
+                # Calculate the intersection points
+                intersection_points = origins + t.unsqueeze(-1) * directions
+
+                return intersection_points
+
             points = ray_bundle.origins + ray_bundle.directions * depth
+            # intersection_points_circle = ray_sphere_intersection_batch(ray_bundle.origins, ray_bundle.directions,
+            #                                                     torch.tensor([0.0, 0.0, 0.0], device=ray_bundle.origins.device)
+            #                                                     , 0.5)
+            # intersection_points_plane = ray_plane_intersection_batch(ray_bundle.origins, ray_bundle.directions, 2,
+            #                                                     -0.5)
+
             nf_field_outputs = self.nf_field.get_outputs(points, ray_bundle.directions)
             outputs["view_log_likelihood"] = nf_field_outputs[FieldHeadNames.VIEW_LOG_LIKELIHOOD]
 
