@@ -509,7 +509,7 @@ class NerfactoModel(Model):
         if "mask" in batch.keys():
             image_mask = batch["mask"].to(self.device)
         else:
-            image_mask = torch.ones((image.shape[0], image.shape[1]), device=self.device)
+            image_mask = torch.ones((image.shape[0], image.shape[1]), device=self.device, dtype=torch.bool)
         rgb = outputs["rgb"]
         rgb_mask_numpy, rgb_mask_colormap = get_mask_from_view_likelihood(outputs["view_log_likelihood"])
         acc = colormaps.apply_colormap(outputs["accumulation"])

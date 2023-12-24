@@ -69,7 +69,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
 
         best_psnr = 0
         for i in range(1, 11):
-            os.system(registeration_cmd.format(str(i)))
+            os.system(registeration_cmd.format(str(scene_seed*i)))
 
             # Read the stats of the registration
             exp_stats_path = outputs_dir + exp[
@@ -108,7 +108,7 @@ if __name__ == "__main__":
         else:
             if len(sys.argv) == 7:
                 timestamp = sys.argv[6]
-                main(base_directory, output_directory, scene_names, exp_types,  downscale, timestamp)
+                main(base_directory, output_directory, scene_names, exp_types, downscale, timestamp)
             else:
                 main(base_directory, output_directory, scene_names, exp_types, downscale)
 
