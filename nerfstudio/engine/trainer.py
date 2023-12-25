@@ -418,7 +418,7 @@ class Trainer:
             # Iterate through the keys and values in the input dictionary
             for key, tensor in stats_json.items():
                 # Convert the tensor to a scalar by extracting the value
-                scalar_value = tensor.item() if isinstance(tensor, torch.Tensor) else tensor
+                scalar_value = tensor.item() if isinstance(tensor, torch.Tensor) else tensorf
                 # Add the scalar to the new dictionary
                 stats_json[key] = scalar_value
 
