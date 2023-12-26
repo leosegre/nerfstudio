@@ -155,6 +155,8 @@ class NerfactoModelConfig(ModelConfig):
     """Whether to disable scene contraction or not."""
     register: bool = False
     """Whether to register scene or not."""
+    mse_init: bool = False
+    """Whether to register using mse loss, otherwise use viewshed."""
 
 
 class NerfactoModel(Model):
@@ -176,6 +178,7 @@ class NerfactoModel(Model):
             scene_contraction = SceneContraction(order=float("inf"))
 
         self.register = self.config.register
+        self.mse_init = self.config.mse_init
 
         # Fields
         self.field = TCNNNerfactoField(
@@ -674,16 +677,20 @@ class NerfactoModel(Model):
 
                 # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/image_loss_{loss:.0f}.png", img3)
 
-        viewshed = outputs["view_log_likelihood"]
-        # Find the minimum non-NaN value
-        min_value = torch.min(viewshed[~torch.isnan(viewshed)])
-        # Replace NaN values with the minimum non-NaN value
-        viewshed[torch.isnan(viewshed)] = min_value
-        # print("before exp:", output.min(), output.max())
-        viewshed = torch.exp(viewshed)
-        viewshed = torch.nan_to_num(viewshed)
 
-        viewshed_score = viewshed[image_mask].sum()
+        if self.mse_init:
+            viewshed_score = -self.rgb_loss(image.unsqueeze(0), rgb.unsqueeze(0))
+        else:
+            viewshed = outputs["view_log_likelihood"]
+            # Find the minimum non-NaN value
+            min_value = torch.min(viewshed[~torch.isnan(viewshed)])
+            # Replace NaN values with the minimum non-NaN value
+            viewshed[torch.isnan(viewshed)] = min_value
+            # print("before exp:", output.min(), output.max())
+            viewshed = torch.exp(viewshed)
+            viewshed = torch.nan_to_num(viewshed)
+
+            viewshed_score = viewshed[image_mask].sum()
 
         # all of these metrics will be logged as scalars
         metrics_dict = {"psnr": float(psnr.item()), "ssim": float(ssim)}  # type: ignore
