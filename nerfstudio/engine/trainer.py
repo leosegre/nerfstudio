@@ -302,6 +302,8 @@ class Trainer:
                                 pretrain_flag = False
                             elif pretrain_flag:
                                 if step == self._start_step:
+                                    self.pipeline.datamanager.fixed_indices_train_dataloader.cameras.rescale_output_resolution(
+                                        1.0 / 4)
                                     metrics_dict = self.pipeline.get_average_train_image_metrics(step)
                                     best_viewshed_score = metrics_dict["viewshed_score"]
                                     best_6dof = self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :]

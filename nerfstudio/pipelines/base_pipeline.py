@@ -404,6 +404,7 @@ class VanillaPipeline(Pipeline):
         #     transient=True,
         # ) as progress:
             # task = progress.add_task("[green]Evaluating all train images for registration...", total=num_images)
+
         for camera_ray_bundle, batch in self.datamanager.fixed_indices_train_dataloader:
             # time this the following line
             inner_start = time()

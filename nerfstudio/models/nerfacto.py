@@ -72,6 +72,7 @@ from nerfstudio.fields.base_field import shift_directions_for_tcnn
 from torchvision.utils import save_image
 from scipy.ndimage import gaussian_filter
 import cv2 as cv
+import torchvision
 
 from nerfstudio.exporter.exporter_utils import get_mask_from_view_likelihood
 
@@ -520,6 +521,15 @@ class NerfactoModel(Model):
             outputs["depth"],
             accumulation=outputs["accumulation"],
         )
+
+        if image.shape != rgb.shape:
+            torch_image = torch.moveaxis(image, -1, 0)
+            torch_image_mask = torch.moveaxis(image_mask, -1, 0)
+            torch_rgb = torch.moveaxis(rgb, -1, 0)
+            image = torchvision.transforms.functional.resize(torch_image, torch_rgb.shape[1])
+            image = torch.moveaxis(image, 0, -1)
+            image_mask = torchvision.transforms.functional.resize(torch_image_mask, torch_rgb.shape[1])
+            image_mask = torch.moveaxis(image_mask, 0, -1)
 
         combined_rgb = torch.cat([image, rgb], dim=1)
         combined_acc = torch.cat([acc], dim=1)
