@@ -50,9 +50,9 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
                 "scene_name": f"{scene}",
                 "downscale_factor": f"{downscale}",
                 "reg_downscale_factor": f"{int(downscale) * 8}",
-                "num_points_reg": "100",
+                "num_points_reg": "10",
                 "num_points_unreg": "10",
-                "pretrain-iters": "25",
+                "pretrain-iters": "100",
                 "unreg_data_dir": f"{data_dir}/",
                 "outputs_dir": f"{outputs_dir}"
             }
