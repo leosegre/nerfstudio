@@ -40,6 +40,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
     # llff_scene_names = ["fern", "fortress", "horns", "room"]
     # scene_names = ["fern"]
 
+
     for scene in scene_names:
         for exp_type in exp_types:
             exp_params = {
@@ -48,7 +49,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
                 "experiment_name": f"{scene}_{exp_type}",
                 "scene_name": f"{scene}",
                 "downscale_factor": f"{downscale}",
-                "reg_downscale_factor": f"{downscale * 8}",
+                "reg_downscale_factor": f"{int(downscale) * 8}",
                 "num_points_reg": "25",
                 "num_points_unreg": "10",
                 "pretrain-iters": "25",
