@@ -341,6 +341,8 @@ class VanillaPipeline(Pipeline):
                 # metrics_dict["translation_mse"] = (translation_mse)
                 metrics_dict["translation_rmse"] = (translation_rmse)
 
+                metrics_dict["t_final"] = camera_opt_transform_matrix
+
         loss_dict = self.model.get_loss_dict(model_outputs, batch, metrics_dict, full_images)
 
         return model_outputs, loss_dict, metrics_dict

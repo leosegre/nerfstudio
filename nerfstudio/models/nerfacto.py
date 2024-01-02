@@ -336,6 +336,7 @@ class NerfactoModel(Model):
             outputs["pred_directions"] = pred_directions
 
         if self.config.predict_view_likelihood:
+            # print("check")
             # cpu_or_cuda_str: str = str(self.device).split(":")[0]
             # with torch.autocast(device_type=cpu_or_cuda_str, enabled=False):
 

@@ -100,6 +100,8 @@ class TrainerConfig(ExperimentConfig):
     """Optionally specify start step to load from."""
     t0: Optional[Path] = None
     """load JSON file of t0."""
+    downscale_init: int = 1
+    """Downscale the initial VF image H and W."""
 
 
 
@@ -153,6 +155,7 @@ class Trainer:
         self.viewer_state = None
         self.pretrain_iters = config.pretrain_iters
         self.nf_first_iter = config.nf_first_iter
+        self.downscale_init = config.downscale_init
 
     def setup(self, test_mode: Literal["test", "val", "inference"] = "val") -> None:
         """Setup the Trainer by calling other setup functions.
@@ -303,7 +306,7 @@ class Trainer:
                             elif pretrain_flag:
                                 if step == self._start_step:
                                     self.pipeline.datamanager.fixed_indices_train_dataloader.cameras.rescale_output_resolution(
-                                        1.0 / 4)
+                                        1.0 / self.downscale_init)
                                     metrics_dict = self.pipeline.get_average_train_image_metrics(step)
                                     best_viewshed_score = metrics_dict["viewshed_score"]
                                     best_6dof = self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :]
@@ -351,11 +354,14 @@ class Trainer:
                                     pretrain_flag = False
                                     step = self._start_step
                                     best_psnr = 0
+                                    self.pipeline.model.config.predict_view_likelihood = False
                             else:
                                 loss, loss_dict, metrics_dict = self.train_iteration(step)
+                                t_final = metrics_dict.pop("t_final")
                                 if metrics_dict["psnr"] > best_psnr:
                                     best_metrics_dict = metrics_dict
                                     best_psnr = metrics_dict["psnr"]
+                                    best_t_final = t_final
                                 # print(best_psnr)
                         else:
                             # time the forward pass
@@ -419,10 +425,11 @@ class Trainer:
             stats_json_path = self.base_dir / "stats.json"
             # Iterate through the keys and values in the input dictionary
             for key, tensor in stats_json.items():
-                # Convert the tensor to a scalar by extracting the value
+                # Convert the tensor to a scalar or list by extracting the value
                 scalar_value = tensor.item() if isinstance(tensor, torch.Tensor) else tensorf
                 # Add the scalar to the new dictionary
                 stats_json[key] = scalar_value
+            stats_json["t_final"] = best_t_final.tolist()
 
             with open(stats_json_path, "w") as outfile:
                 json.dump(stats_json, outfile, indent=2)
