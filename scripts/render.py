@@ -57,6 +57,7 @@ def _render_trajectory_video(
     seconds: float = 5.0,
     output_format: Literal["images", "video"] = "video",
     camera_type: CameraType = CameraType.PERSPECTIVE,
+    t_final: Optional[Path] = None,
 ) -> None:
     """Helper function to create a video of the spiral trajectory.
 
@@ -74,6 +75,16 @@ def _render_trajectory_video(
     CONSOLE.print("[bold green]Creating trajectory " + output_format)
     cameras.rescale_output_resolution(rendered_resolution_scaling_factor)
     cameras = cameras.to(pipeline.device)
+    if t_final is not None:
+        with open(os.path.join(t_final), 'r') as f:
+            t_final_json = json.load(f)
+        t_final_matrix = torch.tensor(list(t_final_json.values())[0]["t_final"], device=pipeline.device)
+        # pipeline.datamanager.train_camera_optimizer.t0 = t_final_matrix
+        camera_opt_to_camera = t_final_matrix
+        print(camera_opt_to_camera)
+    else:
+        camera_opt_to_camera = None
+
     fps = len(cameras) / seconds
 
     progress = Progress(
@@ -106,7 +117,7 @@ def _render_trajectory_video(
                     bounding_box_min = crop_data.center - crop_data.scale / 2.0
                     bounding_box_max = crop_data.center + crop_data.scale / 2.0
                     aabb_box = SceneBox(torch.stack([bounding_box_min, bounding_box_max]).to(pipeline.device))
-                camera_ray_bundle = cameras.generate_rays(camera_indices=camera_idx, aabb_box=aabb_box)
+                camera_ray_bundle = cameras.generate_rays(camera_indices=camera_idx, aabb_box=aabb_box, camera_opt_to_camera=camera_opt_to_camera)
 
                 if crop_data is not None:
                     with renderers.background_color_override_context(
@@ -293,6 +304,8 @@ class RenderTrajectory:
     """Number of interpolation steps between eval dataset cameras."""
     eval_num_rays_per_chunk: Optional[int] = None
     """Specifies number of rays per chunk during eval."""
+    t_final: Optional[Path] = None
+    """Path to json file with t_final matrix."""
 
     def main(self) -> None:
         """Main function."""
@@ -345,6 +358,7 @@ class RenderTrajectory:
             seconds=seconds,
             output_format=self.output_format,
             camera_type=camera_type,
+            t_final=self.t_final,
         )
 
 
