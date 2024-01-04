@@ -23,7 +23,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
     default_params_unregistered = " nerfstudio-data --train-split-fraction 1.0 --max-translation 0.5 --max-angle-factor 0.25 --scene-scale 2 " \
                                   "--registration True --orientation-method none --center-method none --auto-scale-poses False "
     default_params_registration = "ns-train register-nerfacto --viewer.quit-on-train-completion True --pipeline.model.predict-view-likelihood True --nf-first-iter 100000 " \
-                                  "--start-step 0 --pipeline.datamanager.train-num-rays-per-batch 4096 --max-num-iterations 15000 " \
+                                  "--start-step 0 --pipeline.datamanager.train-num-rays-per-batch 32000 --max-num-iterations 15000 " \
                                   "--pipeline.model.distortion-loss-mult 0 --pipeline.model.interlevel-loss-mult 0 --pipeline.registration True --vis tensorboard"
     default_params_registration_suffix = " nerfstudio-data --train-split-fraction 1.0 --max-translation 0.5 --max-angle-factor 0.25 --scene-scale 2 --registration True " \
                                          "--optimize_camera_registration True --load_registration True --orientation-method none --center-method none --auto-scale-poses False"
@@ -49,7 +49,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
                 "experiment_name": f"{scene}_{exp_type}",
                 "scene_name": f"{scene}",
                 "downscale_factor": f"{downscale}",
-                "reg_downscale_factor": f"{int(downscale) * 8}",
+                "reg_downscale_factor": f"{int(downscale)}",
                 "num_points_reg": "10",
                 "num_points_unreg": "10",
                 "pretrain-iters": "25",
