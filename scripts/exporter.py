@@ -174,9 +174,9 @@ class ExportTransformsNF(Exporter):
 
     num_points: int = 10
     """Number of points to generate. May result in less if outlier removal is used."""
-    min_depth: float = 0.7
+    min_depth: float = 0.5
     """depth: The depth of the camera."""
-    max_depth: float = 1.2
+    max_depth: float = 1.5
     """depth: The depth of the camera."""
     downscale_factor: int = 1
     depth_output_name: str = "depth"
@@ -184,6 +184,7 @@ class ExportTransformsNF(Exporter):
     mask_output_name: str = "mask"
     view_likelihood_output_name: str = "view_log_likelihood"
     generate_masks: bool = True
+    num_depth_points: int = 5
     seed: int = 42
 
 
@@ -214,11 +215,12 @@ class ExportTransformsNF(Exporter):
             min_depth=self.min_depth,
             max_depth=self.max_depth,
             generate_masks=self.generate_masks,
+            num_depth_points=self.num_depth_points,
         )
         torch.cuda.empty_cache()
 
 
-        distortion_params = torch.zeros((self.num_points, 6))
+        distortion_params = torch.zeros((self.num_points*self.num_depth_points, 6))
         cameras = Cameras(
             fx=transforms["fl_x"],
             fy=transforms["fl_y"],
@@ -258,6 +260,34 @@ class ExportTransformsNF(Exporter):
         if not os.path.exists(masks_dir):
             os.mkdir(masks_dir)
 
+        best_viewshed = 0
+        depth_list = []
+        best_depth = 0
+
+        for i in range(view_likelihood_images.shape[0]):
+            output_viewshed = view_likelihood_images[i]
+            min_value = torch.min(output_viewshed[~torch.isnan(output_viewshed)])
+            # Replace NaN values with the minimum non-NaN value
+            output_viewshed[torch.isnan(output_viewshed)] = min_value
+            output_viewshed = torch.exp(output_viewshed)
+
+            viewshed = output_viewshed.sum()
+
+            print("viewshed", viewshed)
+            if viewshed > best_viewshed:
+                best_viewshed = viewshed
+                best_depth = i
+            if (i % self.num_depth_points) == (self.num_depth_points - 1):
+                depth_list.append(best_depth)
+                best_viewshed = 0
+
+        depth_tensor = torch.tensor(np.array(depth_list))
+        print(depth_list)
+
+        transforms["frames"] = [transforms["frames"][i] for i in depth_list]
+        color_images = color_images[depth_list]
+        depth_images = depth_images[depth_list]
+        view_likelihood_images = view_likelihood_images[depth_list]
 
 
         mask_output, output_colormap = get_mask_from_view_likelihood(view_likelihood_images)

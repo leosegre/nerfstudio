@@ -323,6 +323,7 @@ def generate_cameras_from_nf(
     min_depth: float = 0.8,
     max_depth: float = 1.0,
     generate_masks = True,
+    num_depth_points = 5,
 
 ) -> o3d.geometry.PointCloud:
     """Generate a point cloud from a nerf.
@@ -352,15 +353,23 @@ def generate_cameras_from_nf(
         points = d_cat_x[..., :3]
         # points[0] = torch.zeros(3)
         directions = d_cat_x[..., 3:]
+        directions_shape = directions.shape
 
         print("points", points)
         print("directions", directions)
 
-
-    depth = torch.FloatTensor(directions.size()).uniform_(min_depth, max_depth).to(directions.device)
-    c2w = torch.zeros((num_points, 4, 4))
-    my_c2w = torch.zeros((num_points, 4, 4))
+    total_num_points = num_points * num_depth_points
+    points = points.repeat_interleave(num_depth_points, dim=0)
+    directions = directions.repeat_interleave(num_depth_points, dim=0)
+    # depth = torch.FloatTensor(directions.size()).uniform_(min_depth, max_depth).to(directions.device)
+    depth = torch.FloatTensor(np.linspace(min_depth, max_depth, num=num_depth_points)).to(directions.device)[..., None]
+    depth = depth.repeat((num_points, 1))
+    c2w = torch.zeros((total_num_points, 4, 4))
+    my_c2w = torch.zeros((total_num_points, 4, 4))
+    print(directions.shape)
+    print(depth.shape)
     origins = points - directions * depth
+    print(origins.shape)
 
 
     my_c2w[..., :3, 3] = origins  # (..., 3)
@@ -385,16 +394,16 @@ def generate_cameras_from_nf(
     directions = directions
     directions_numpy = directions.cpu().numpy()
 
-    for i in range(num_points):
+    for i in range(total_num_points):
         my_c2w[i, :3, :3] = torch.from_numpy(align_vectors(np.array([0, 0, -1]), directions_numpy[i]))
 
     my_c2w[..., 3, 3] = 1
 
-    up = torch.randn_like(directions)
+    up = torch.randn(directions_shape).repeat_interleave(num_depth_points, dim=0).to(device=directions.device)
     up = torch.cross(up, directions, dim=1)
 
 
-    for i in range(num_points):
+    for i in range(total_num_points):
         c2w_temp = camera_utils.viewmatrix(-directions[i], up[i], origins[i])
         c2w_temp = pose_utils.to4x4(c2w_temp)
         c2w[i] = c2w_temp
@@ -420,9 +429,9 @@ def generate_cameras_from_nf(
     frames = []
     for i, camera in enumerate(c2w_list):
         frame = {}
-        frame["file_path"] = f"images/rgb_{i}.png"
+        frame["file_path"] = f"images/rgb_{int(i/num_depth_points)}.png"
         if generate_masks:
-            frame["mask_path"] = f"images/mask_{i}.png"
+            frame["mask_path"] = f"images/mask_{int(i/num_depth_points)}.png"
         # transform_matrix = np.array(eval(camera["matrix"])).reshape((4, 4)).T
         frame["transform_matrix"] = camera
         frames.append(frame)
