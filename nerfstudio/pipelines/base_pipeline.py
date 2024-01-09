@@ -425,7 +425,7 @@ class VanillaPipeline(Pipeline):
         metrics_dict = {}
         for key in metrics_dict_list[0].keys():
             metrics_dict[key] = float(
-                torch.mean(torch.tensor([metrics_dict[key] for metrics_dict in metrics_dict_list]))
+                torch.median(torch.tensor([metrics_dict[key] for metrics_dict in metrics_dict_list]))
             )
             # if key == "loss":
             #     print(metrics_dict_list[0][key])

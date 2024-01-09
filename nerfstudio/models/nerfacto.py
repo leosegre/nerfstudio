@@ -701,7 +701,21 @@ class NerfactoModel(Model):
             viewshed = torch.exp(viewshed)
             viewshed = torch.nan_to_num(viewshed)
 
+            # viewshed_score = viewshed.sum()
             viewshed_score = viewshed[image_mask].sum()
+
+            # rgb_numpy = rgb.cpu().numpy()
+            # rgb_numpy_check = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2RGB)
+            # rgb_numpy_check = cv.normalize(rgb_numpy_check, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+            #
+            # img_numpy = image.cpu().numpy()
+            # img_numpy_check = cv.cvtColor(img_numpy, cv.COLOR_BGR2RGB)
+            # img_numpy_check = cv.normalize(img_numpy_check, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+            #
+            # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/rgb_step_{step}_loss_{viewshed_score:.0f}.png", rgb_numpy_check)
+            # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/image_step_{step}_loss_{viewshed_score:.0f}.png", img_numpy_check)
+            # print(image_mask.shape)
+            # viewshed_score = -self.rgb_loss(image[image_mask.repeat(1, 1, 3)].unsqueeze(0), rgb[image_mask.repeat(1, 1, 3)].unsqueeze(0))
 
         # all of these metrics will be logged as scalars
         metrics_dict = {"psnr": float(psnr.item()), "ssim": float(ssim)}  # type: ignore

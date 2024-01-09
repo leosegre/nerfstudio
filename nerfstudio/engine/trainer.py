@@ -100,7 +100,7 @@ class TrainerConfig(ExperimentConfig):
     """Optionally specify start step to load from."""
     t0: Optional[Path] = None
     """load JSON file of t0."""
-    downscale_init: int = 1
+    downscale_init: int = 8
     """Downscale the initial VF image H and W."""
 
 
@@ -334,6 +334,7 @@ class Trainer:
                                         self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = random_6dof
 
                                     metrics_dict = self.pipeline.get_average_train_image_metrics(step)
+
                                     if metrics_dict["viewshed_score"] > best_viewshed_score:
                                         best_viewshed_score = metrics_dict["viewshed_score"]
                                         best_6dof = random_6dof

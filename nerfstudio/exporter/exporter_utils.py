@@ -599,8 +599,8 @@ def get_mask_from_view_likelihood(images, colormap_normalize=True):
     for i in range(output_colormap_flat.shape[0]):
         output_colormap[i] = cv.applyColorMap(output_colormap_flat[i], cv.COLORMAP_TURBO)
 
-    threshold = 0.1
-    # threshold = 0.001
+    # threshold = 0.1
+    threshold = 0.01
     mask_output = (255 * (output >= threshold)).cpu().numpy()
 
     return mask_output, output_colormap

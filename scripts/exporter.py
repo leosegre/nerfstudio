@@ -176,7 +176,7 @@ class ExportTransformsNF(Exporter):
     """Number of points to generate. May result in less if outlier removal is used."""
     min_depth: float = 0.5
     """depth: The depth of the camera."""
-    max_depth: float = 1.5
+    max_depth: float = 2.0
     """depth: The depth of the camera."""
     downscale_factor: int = 1
     depth_output_name: str = "depth"

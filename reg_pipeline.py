@@ -51,7 +51,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
                 "downscale_factor": f"{downscale}",
                 "reg_downscale_factor": f"{int(downscale)}",
                 "num_points_reg": "10",
-                "num_points_unreg": "10",
+                "num_points_unreg": "5",
                 "pretrain-iters": "25",
                 "unreg_data_dir": f"{data_dir}/",
                 "outputs_dir": f"{outputs_dir}"
@@ -98,7 +98,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
 
         best_psnr = 0
         for i in range(1, repeat_reg+1):
-            os.system(export_cmd_unreg.format(str(scene_seed*i)))
+            # os.system(export_cmd_unreg.format(str(scene_seed*i)))
             os.system(registeration_cmd.format(str(scene_seed*i)))
 
             # Read the stats of the registration

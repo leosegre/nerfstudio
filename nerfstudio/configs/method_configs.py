@@ -137,7 +137,8 @@ method_configs["register-nerfacto"] = TrainerConfig(
             camera_optimizer=CameraOptimizerConfig(
                 # mode="SO3xR3",
                 mode="SE3",
-                optimizer=SGDOptimizerConfig(lr=5e-3, eps=1e-8),
+                optimizer=SGDOptimizerConfig(lr=2e-3, eps=1e-15),
+                # optimizer=AdamOptimizerConfig(lr=5e-3, eps=1e-8),
                 scheduler=ExponentialDecaySchedulerConfig(lr_final=5e-4, max_steps=15000),
                 # scheduler=CosineDecaySchedulerConfig(max_steps=10000),
             ),
