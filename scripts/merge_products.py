@@ -7,8 +7,8 @@ def genDiag(nR, nC, valUpper, valDiag, valLower):
     slope = nC / nR
     tbl = np.full((nR, nC), valDiag, dtype=float)
     for r in range(nR):
-        tbl[r, 0 : int(round(slope * (r - 2), 0))] = valLower
-        tbl[r, int(round(slope * (r + 3), 0)) : nC] = valUpper
+        tbl[r, 0 : int(round(slope * (r - 3), 0))] = valLower
+        tbl[r, int(round(slope * (r + 4), 0)) : nC] = valUpper
     return tbl
 
 def merge_images_and_videos(input1, input2, output_path):
@@ -36,11 +36,13 @@ def merge_images_and_videos(input1, input2, output_path):
         mask = genDiag(w, h, 1, 0, -1)[..., None]
         mask1 = mask == 1
         mask2 = mask == -1
+        mask_diag = mask == 0
 
         # Merge images along the diagonal
         merged_image = np.zeros_like(img1)
         merged_image += img1 * mask1
         merged_image += img2 * mask2
+        merged_image += np.uint8([255, 255, 255]) * mask_diag
 
         cv2.imwrite(output_path, merged_image)
 
@@ -57,6 +59,8 @@ def merge_images_and_videos(input1, input2, output_path):
         mask = genDiag(w, h, 1, 0, -1)[..., None]
         mask1 = mask == 1
         mask2 = mask == -1
+        mask_diag = mask == 0
+
 
         fourcc = cv2.VideoWriter_fourcc(*'MJPG')  # Use MJPEG codec
         out = cv2.VideoWriter(output_path, fourcc, 20.0, (int(cap1.get(3)), int(cap1.get(4))))
@@ -72,7 +76,8 @@ def merge_images_and_videos(input1, input2, output_path):
             merged_frame = np.zeros_like(frame1)
             merged_frame += frame1 * mask1
             merged_frame += frame2 * mask2
-            # merged_frame = np.where(mask[:, :, None], frame1, frame2)
+            merged_frame += np.uint8([255, 255, 255]) * mask_diag
+
 
             out.write(merged_frame)
 
