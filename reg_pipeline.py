@@ -98,7 +98,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
 
         best_psnr = 0
         for i in range(1, repeat_reg+1):
-            # os.system(export_cmd_unreg.format(str(scene_seed*i)))
+            os.system(export_cmd_unreg.format(str(scene_seed*i)))
             os.system(registeration_cmd.format(str(scene_seed*i)))
 
             # Read the stats of the registration
