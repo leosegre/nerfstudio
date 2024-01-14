@@ -100,7 +100,7 @@ class TrainerConfig(ExperimentConfig):
     """Optionally specify start step to load from."""
     t0: Optional[Path] = None
     """load JSON file of t0."""
-    downscale_init: int = 8
+    downscale_init: int = 1
     """Downscale the initial VF image H and W."""
 
 
@@ -317,9 +317,9 @@ class Trainer:
                                 elif step < num_pretrain:
                                     print("Pretrain step:", step)
                                     min_rand_rot = 0
-                                    max_rand_rot = 0.25*torch.pi
-                                    min_rand_trans = -0.5
-                                    max_rand_trans = 0.5
+                                    max_rand_rot = 0.5*torch.pi
+                                    min_rand_trans = -1.0
+                                    max_rand_trans = 1.0
                                     # random_6dof_rot = torch.deg2rad(torch.tensor((-33.70861053466797, 85.56428527832031, 65.87945556640625-15)).to(
                                     #     device=self.device))
                                     # random_6dof_trans = torch.tensor((0.0986584841970366, -0.3439813595575635, -0.34400547966379735)).to(

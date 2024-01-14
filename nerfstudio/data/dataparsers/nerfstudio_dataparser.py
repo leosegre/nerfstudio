@@ -331,6 +331,9 @@ class Nerfstudio(DataParser):
                 unregistration_matrix = pose_utils.inverse(registration_matrix)
                 poses = pose_utils.multiply(unregistration_matrix, poses)
 
+                CONSOLE.log(f"[yellow] rotation is {r}")
+                CONSOLE.log(f"[yellow] translation is {translation_ab}")
+
             if self.config.inerf:
                 unregistration_matrix = pose_utils.inverse(registration_matrix)
                 poses = pose_utils.multiply(unregistration_matrix, poses)

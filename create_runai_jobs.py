@@ -3,7 +3,7 @@ import sys
 
 def main(reg_pipline):
     scene_names = ["fern", "horns", "room", "trex"]
-    # scene_names = ["horns"]
+    # scene_names = ["trex"]
     timestamps = {"fern-0-100-even-odd": "2023-12-18_110607",
                   "fern-30-70-even-odd": "2023-12-18_110622",
                   "fern-50-50": "2023-12-18_110747",
@@ -17,6 +17,7 @@ def main(reg_pipline):
                   "trex-30-70-even-odd": "2023-12-18_110612",
                   "trex-50-50": "2023-12-18_110740"}
     exp_types = ["0-100-even-odd", "30-70-even-odd", "50-50"]
+    # exp_types = ["30-70-even-odd"]
     # exp_types = ["0-100-even-odd"]
 
     # scene_names = ["lion", "table"]
@@ -29,8 +30,8 @@ def main(reg_pipline):
         for exp_type in exp_types:
             cmd = f"runai submit --pvc=storage:/storage -i leosegre/nerfstudio_reg --name leo3-{scene_name}-{exp_type}{reg_pipline.replace('_', '-').replace('reg-pipeline', '')} " \
                   f"-g 1 --large-shm --command -- bash entrypoint.sh python {reg_pipline}.py " \
-            f"/storage/leo/data /storage/leo/outputs/ {scene_name} {exp_type.replace('-', '_')} {downscale} {timestamps[f'{scene_name}-{exp_type}']}"
-            # f"/storage/leo/data /storage/leo/outputs/ {scene_name} {exp_type.replace('-', '_')} {downscale}"
+            f"/storage/leo/data /storage/leo/outputs/ {scene_name} {exp_type.replace('-', '_')} {downscale}"
+            # f"/storage/leo/data /storage/leo/outputs/ {scene_name} {exp_type.replace('-', '_')} {downscale} {timestamps[f'{scene_name}-{exp_type}']}"
 
 
 
