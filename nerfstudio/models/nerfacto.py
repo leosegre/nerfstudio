@@ -701,8 +701,8 @@ class NerfactoModel(Model):
             viewshed = torch.exp(viewshed)
             viewshed = torch.nan_to_num(viewshed)
 
-            # viewshed_score = viewshed.sum()
-            viewshed_score = viewshed[image_mask].sum()
+            viewshed_score = viewshed.sum()
+            # viewshed_score = viewshed[image_mask].sum()
 
             # rgb_numpy = rgb.cpu().numpy()
             # rgb_numpy_check = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2RGB)

@@ -7,7 +7,7 @@ import numpy as np
 import json
 
 
-def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=None, repeat_reg=10):
+def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=None, repeat_reg=3):
     if timestamp is None:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
         reconstruct_scenes = True
