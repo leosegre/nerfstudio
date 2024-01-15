@@ -176,7 +176,7 @@ class ExportTransformsNF(Exporter):
     """Number of points to generate. May result in less if outlier removal is used."""
     min_depth: float = 0.7
     """depth: The depth of the camera."""
-    max_depth: float = 1.2
+    max_depth: float = 1.7
     """depth: The depth of the camera."""
     downscale_factor: int = 1
     depth_output_name: str = "depth"
@@ -184,7 +184,7 @@ class ExportTransformsNF(Exporter):
     mask_output_name: str = "mask"
     view_likelihood_output_name: str = "view_log_likelihood"
     generate_masks: bool = True
-    num_depth_points: int = 1
+    num_depth_points: int = 5
     seed: int = 42
 
 

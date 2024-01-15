@@ -100,7 +100,7 @@ class TrainerConfig(ExperimentConfig):
     """Optionally specify start step to load from."""
     t0: Optional[Path] = None
     """load JSON file of t0."""
-    downscale_init: int = 1
+    downscale_init: int = 4
     """Downscale the initial VF image H and W."""
 
 
@@ -317,9 +317,9 @@ class Trainer:
                                 elif step < num_pretrain:
                                     print("Pretrain step:", step)
                                     min_rand_rot = 0
-                                    max_rand_rot = 0.5*torch.pi
-                                    min_rand_trans = -1.0
-                                    max_rand_trans = 1.0
+                                    max_rand_rot = 0.25*torch.pi
+                                    min_rand_trans = -0.5
+                                    max_rand_trans = 0.5
                                     # random_6dof_rot = torch.deg2rad(torch.tensor((-33.70861053466797, 85.56428527832031, 65.87945556640625-15)).to(
                                     #     device=self.device))
                                     # random_6dof_trans = torch.tensor((0.0986584841970366, -0.3439813595575635, -0.34400547966379735)).to(
@@ -334,6 +334,9 @@ class Trainer:
                                         self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = random_6dof
 
                                     metrics_dict = self.pipeline.get_average_train_image_metrics(step)
+                                    print("step:", step)
+                                    print("best_VF:", best_viewshed_score)
+                                    print("step_VF:", metrics_dict["viewshed_score"])
 
                                     if metrics_dict["viewshed_score"] > best_viewshed_score:
                                         best_viewshed_score = metrics_dict["viewshed_score"]
@@ -355,7 +358,7 @@ class Trainer:
                                     pretrain_flag = False
                                     step = self._start_step
                                     best_psnr = 0
-                                    self.pipeline.model.config.predict_view_likelihood = False
+                                    # self.pipeline.model.config.predict_view_likelihood = False
                             else:
                                 loss, loss_dict, metrics_dict = self.train_iteration(step)
                                 t_final = metrics_dict.pop("t_final")

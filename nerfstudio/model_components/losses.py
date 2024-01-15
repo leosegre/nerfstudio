@@ -36,6 +36,9 @@ EPS = 1.0e-7
 URF_SIGMA_SCALE_FACTOR = 3.0
 
 
+def weighted_mse_loss(weight, input, target):
+    return torch.sum(weight * (input - target) ** 2)
+
 class DepthLossType(Enum):
     """Types of depth losses for depth supervision."""
 

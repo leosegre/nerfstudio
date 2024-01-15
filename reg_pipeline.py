@@ -20,11 +20,11 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
     default_params = "ns-train nerfacto --viewer.quit-on-train-completion True --max-num-iterations 53000 --nf-first-iter 50000 --pipeline.datamanager.train-num-rays-per-batch 1024 " \
                      "--pipeline.model.predict-view-likelihood True --pipeline.datamanager.camera-optimizer.mode off --vis tensorboard "
     default_params_registered = " nerfstudio-data --auto_scale_poses True --train-split-fraction 1.0 --center-method focus --orientation-method up --scene-scale 2 "
-    default_params_unregistered = " nerfstudio-data --train-split-fraction 1.0 --max-translation 1.0 --max-angle-factor 0.5 --scene-scale 2 " \
+    default_params_unregistered = " nerfstudio-data --train-split-fraction 1.0 --max-translation 0.5 --max-angle-factor 0.25 --scene-scale 2 " \
                                   "--registration True --orientation-method none --center-method none --auto-scale-poses False "
     default_params_registration = "ns-train register-nerfacto --viewer.quit-on-train-completion True --pipeline.model.predict-view-likelihood True --nf-first-iter 100000 " \
                                   "--start-step 0 --pipeline.datamanager.train-num-rays-per-batch 32000 --max-num-iterations 15000 " \
-                                  "--pipeline.model.distortion-loss-mult 0 --pipeline.model.interlevel-loss-mult 0 --pipeline.registration True --vis tensorboard"
+                                  "--pipeline.model.distortion-loss-mult 0 --pipeline.model.interlevel-loss-mult 0 --pipeline.registration True --vis viewer+tensorboard"
     default_params_registration_suffix = " nerfstudio-data --train-split-fraction 1.0 --max-translation 0.5 --max-angle-factor 0.25 --scene-scale 2 --registration True " \
                                          "--optimize_camera_registration True --load_registration True --orientation-method none --center-method none --auto-scale-poses False"
 

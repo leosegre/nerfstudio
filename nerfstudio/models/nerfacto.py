@@ -49,6 +49,7 @@ from nerfstudio.model_components.losses import (
     orientation_loss,
     pred_normal_loss,
     view_likelihood_loss,
+    weighted_mse_loss,
 )
 from nerfstudio.model_components.ray_samplers import (
     ProposalNetworkSampler,
@@ -257,6 +258,7 @@ class NerfactoModel(Model):
 
         # losses
         self.rgb_loss = MSELoss()
+        self.weighted_rgb_loss = weighted_mse_loss
 
         # metrics
         self.psnr = PeakSignalNoiseRatio(data_range=1.0)
@@ -470,9 +472,32 @@ class NerfactoModel(Model):
 
             image_yuv = torch.matmul(yuv_transform, image.unsqueeze(-1)).squeeze()
             rgb_yuv = torch.matmul(yuv_transform, outputs["rgb"].unsqueeze(-1)).squeeze()
+
+            viewshed = outputs["view_log_likelihood"]
+            # Find the minimum non-NaN value
+            if not torch.isnan(viewshed).all():
+                min_value = torch.min(viewshed[~torch.isnan(viewshed)])
+                # Replace NaN values with the minimum non-NaN value
+                viewshed[torch.isnan(viewshed)] = min_value
+                # print("before exp:", output.min(), output.max())
+                viewshed = torch.exp(viewshed)
+                viewshed = torch.nan_to_num(viewshed)
+
+                # viewshed = viewshed >= 10
+                # if not viewshed.any():
+                #     viewshed = torch.ones_like(viewshed)
+
+                # viewshed = viewshed.clamp(min=0, max=1)
+                # viewshed_score = viewshed[image_mask].sum()
+            else:
+                viewshed = torch.ones_like(viewshed)
+
+            viewshed = 100 * (viewshed / viewshed.sum())
+
             # print(image_yuv.shape)
             # print(rgb_yuv.shape)
-            loss_dict["rgb_loss"] = self.config.rgb_loss_mult * self.rgb_loss(image_yuv[..., 1:], rgb_yuv[..., 1:])
+            # loss_dict["rgb_loss"] = self.config.rgb_loss_mult * self.rgb_loss(image_yuv[..., 1:], rgb_yuv[..., 1:])
+            loss_dict["rgb_loss"] = self.config.rgb_loss_mult * self.weighted_rgb_loss(viewshed.detach(), image_yuv[..., 1:], rgb_yuv[..., 1:])
         else:
             loss_dict["rgb_loss"] = self.config.rgb_loss_mult * self.rgb_loss(image, outputs["rgb"])
 
@@ -514,7 +539,7 @@ class NerfactoModel(Model):
         if "mask" in batch.keys():
             image_mask = batch["mask"].to(self.device)
         else:
-            image_mask = torch.ones((image.shape[0], image.shape[1]), device=self.device, dtype=torch.bool)
+            image_mask = torch.ones_like(image, device=self.device, dtype=torch.bool)
         rgb = outputs["rgb"]
         rgb_mask_numpy, rgb_mask_colormap = get_mask_from_view_likelihood(outputs["view_log_likelihood"])
         acc = colormaps.apply_colormap(outputs["accumulation"])

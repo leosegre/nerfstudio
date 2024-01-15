@@ -318,7 +318,7 @@ def generate_cameras_from_nf(
     pipeline: Pipeline,
     dataparser_transforms: dict,
     num_points: int = 10,
-    sample_ratio = 5,
+    sample_ratio = 2,
     # sample_ratio = 100,
     min_depth: float = 0.8,
     max_depth: float = 1.0,
@@ -600,7 +600,7 @@ def get_mask_from_view_likelihood(images, colormap_normalize=True):
         output_colormap[i] = cv.applyColorMap(output_colormap_flat[i], cv.COLORMAP_TURBO)
 
     # threshold = 0.1
-    threshold = 0.01
+    threshold = 0.05
     mask_output = (255 * (output >= threshold)).cpu().numpy()
 
     return mask_output, output_colormap
