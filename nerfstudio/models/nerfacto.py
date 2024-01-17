@@ -262,7 +262,7 @@ class NerfactoModel(Model):
         self.rgb_loss = MSELoss()
         self.weighted_rgb_loss = weighted_mse_loss
 
-        self.weighted_loss = weighted_loss
+        self.weighted_loss = self.config.weighted_loss
 
         # metrics
         self.psnr = PeakSignalNoiseRatio(data_range=1.0)
