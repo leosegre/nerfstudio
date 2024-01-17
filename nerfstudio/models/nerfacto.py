@@ -477,7 +477,7 @@ class NerfactoModel(Model):
             image_yuv = torch.matmul(yuv_transform, image.unsqueeze(-1)).squeeze()
             rgb_yuv = torch.matmul(yuv_transform, outputs["rgb"].unsqueeze(-1)).squeeze()
 
-            if self.weighted_loss
+            if self.weighted_loss:
                 viewshed = outputs["view_log_likelihood"]
                 # Find the minimum non-NaN value
                 if not torch.isnan(viewshed).all():
