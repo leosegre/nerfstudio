@@ -504,8 +504,7 @@ class NerfactoModel(Model):
                 # loss_dict["rgb_loss"] = self.config.rgb_loss_mult * self.rgb_loss(image_yuv[..., 1:], rgb_yuv[..., 1:])
                 loss_dict["rgb_loss"] = self.config.rgb_loss_mult * self.weighted_rgb_loss(viewshed.detach(), image_yuv[..., 1:], rgb_yuv[..., 1:])
             else:
-                loss_dict["rgb_loss"] = self.config.rgb_loss_mult * self.weighted_rgb_loss(image_yuv[..., 1:],
-                                                                                           rgb_yuv[..., 1:])
+                loss_dict["rgb_loss"] = self.config.rgb_loss_mult * self.rgb_loss(image_yuv[..., 1:], rgb_yuv[..., 1:])
         else:
             loss_dict["rgb_loss"] = self.config.rgb_loss_mult * self.rgb_loss(image, outputs["rgb"])
 
