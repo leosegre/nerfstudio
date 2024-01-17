@@ -7,7 +7,7 @@ import numpy as np
 import json
 
 
-def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=None, repeat_reg=3):
+def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=None, repeat_reg=10):
     if timestamp is None:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
         reconstruct_scenes = True
@@ -17,7 +17,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
     # timestamp = "2023-07-26_101624"
     print(timestamp)
 
-    default_params = "ns-train nerfacto --viewer.quit-on-train-completion True --max-num-iterations 53000 --nf-first-iter 50000 --pipeline.datamanager.train-num-rays-per-batch 1024 " \
+    default_params = "ns-train nerfacto --viewer.quit-on-train-completion True --max-num-iterations 60000 --nf-first-iter 50000 --pipeline.datamanager.train-num-rays-per-batch 1024 " \
                      "--pipeline.model.predict-view-likelihood True --pipeline.datamanager.camera-optimizer.mode off --vis tensorboard "
     default_params_registered = " nerfstudio-data --auto_scale_poses True --train-split-fraction 1.0 --center-method focus --orientation-method up --scene-scale 2 "
     default_params_unregistered = " nerfstudio-data --train-split-fraction 1.0 --max-translation 0.5 --max-angle-factor 0.25 --scene-scale 2 " \

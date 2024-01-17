@@ -159,7 +159,7 @@ class NerfactoModelConfig(ModelConfig):
     """Whether to register scene or not."""
     mse_init: bool = False
     """Whether to register using mse loss, otherwise use viewshed."""
-    weighted_loss: bool = True
+    weighted_loss: bool = False
     """Whether to register using weightef loss."""
 
 
