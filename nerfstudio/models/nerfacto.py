@@ -159,6 +159,8 @@ class NerfactoModelConfig(ModelConfig):
     """Whether to register scene or not."""
     mse_init: bool = False
     """Whether to register using mse loss, otherwise use viewshed."""
+    weighted_loss: bool = True
+    """Whether to register using weightef loss."""
 
 
 class NerfactoModel(Model):
@@ -259,6 +261,8 @@ class NerfactoModel(Model):
         # losses
         self.rgb_loss = MSELoss()
         self.weighted_rgb_loss = weighted_mse_loss
+
+        self.weighted_loss = weighted_loss
 
         # metrics
         self.psnr = PeakSignalNoiseRatio(data_range=1.0)
@@ -473,31 +477,35 @@ class NerfactoModel(Model):
             image_yuv = torch.matmul(yuv_transform, image.unsqueeze(-1)).squeeze()
             rgb_yuv = torch.matmul(yuv_transform, outputs["rgb"].unsqueeze(-1)).squeeze()
 
-            viewshed = outputs["view_log_likelihood"]
-            # Find the minimum non-NaN value
-            if not torch.isnan(viewshed).all():
-                min_value = torch.min(viewshed[~torch.isnan(viewshed)])
-                # Replace NaN values with the minimum non-NaN value
-                viewshed[torch.isnan(viewshed)] = min_value
-                # print("before exp:", output.min(), output.max())
-                viewshed = torch.exp(viewshed)
-                viewshed = torch.nan_to_num(viewshed)
+            if self.weighted_loss
+                viewshed = outputs["view_log_likelihood"]
+                # Find the minimum non-NaN value
+                if not torch.isnan(viewshed).all():
+                    min_value = torch.min(viewshed[~torch.isnan(viewshed)])
+                    # Replace NaN values with the minimum non-NaN value
+                    viewshed[torch.isnan(viewshed)] = min_value
+                    # print("before exp:", output.min(), output.max())
+                    viewshed = torch.exp(viewshed)
+                    viewshed = torch.nan_to_num(viewshed)
 
-                # viewshed = viewshed >= 10
-                # if not viewshed.any():
-                #     viewshed = torch.ones_like(viewshed)
+                    # viewshed = viewshed >= 10
+                    # if not viewshed.any():
+                    #     viewshed = torch.ones_like(viewshed)
 
-                # viewshed = viewshed.clamp(min=0, max=1)
-                # viewshed_score = viewshed[image_mask].sum()
+                    # viewshed = viewshed.clamp(min=0, max=1)
+                    # viewshed_score = viewshed[image_mask].sum()
+                else:
+                    viewshed = torch.ones_like(viewshed)
+
+                viewshed = 100 * (viewshed / viewshed.sum())
+
+                # print(image_yuv.shape)
+                # print(rgb_yuv.shape)
+                # loss_dict["rgb_loss"] = self.config.rgb_loss_mult * self.rgb_loss(image_yuv[..., 1:], rgb_yuv[..., 1:])
+                loss_dict["rgb_loss"] = self.config.rgb_loss_mult * self.weighted_rgb_loss(viewshed.detach(), image_yuv[..., 1:], rgb_yuv[..., 1:])
             else:
-                viewshed = torch.ones_like(viewshed)
-
-            viewshed = 100 * (viewshed / viewshed.sum())
-
-            # print(image_yuv.shape)
-            # print(rgb_yuv.shape)
-            # loss_dict["rgb_loss"] = self.config.rgb_loss_mult * self.rgb_loss(image_yuv[..., 1:], rgb_yuv[..., 1:])
-            loss_dict["rgb_loss"] = self.config.rgb_loss_mult * self.weighted_rgb_loss(viewshed.detach(), image_yuv[..., 1:], rgb_yuv[..., 1:])
+                loss_dict["rgb_loss"] = self.config.rgb_loss_mult * self.weighted_rgb_loss(image_yuv[..., 1:],
+                                                                                           rgb_yuv[..., 1:])
         else:
             loss_dict["rgb_loss"] = self.config.rgb_loss_mult * self.rgb_loss(image, outputs["rgb"])
 

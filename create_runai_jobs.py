@@ -43,8 +43,8 @@ def main(reg_pipline):
         for exp_type in exp_types:
             cmd = f"runai submit --pvc=storage:/storage -i leosegre/nerfstudio_reg --name leo3-{scene_name}-{exp_type}{reg_pipline.replace('_', '-').replace('reg-pipeline', '')} " \
                   f"-g 1 --large-shm --command -- bash entrypoint.sh python {reg_pipline}.py " \
-            f"/storage/leo/data /storage/leo/outputs/ {scene_name} {exp_type.replace('-', '_')} {downscale}"
-            # f"/storage/leo/data /storage/leo/outputs/ {scene_name} {exp_type.replace('-', '_')} {downscale} {timestamps[f'{scene_name}-{exp_type}']}"
+            f"/storage/leo/data /storage/leo/outputs/ {scene_name} {exp_type.replace('-', '_')} {downscale} {timestamps[f'{scene_name}-{exp_type}']}"
+            # f"/storage/leo/data /storage/leo/outputs/ {scene_name} {exp_type.replace('-', '_')} {downscale}"
 
 
 
