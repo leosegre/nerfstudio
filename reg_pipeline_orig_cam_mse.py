@@ -5,7 +5,7 @@ import sys
 import numpy as np
 
 import json
-
+import random
 
 def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=None):
     if timestamp is None:
@@ -65,6 +65,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
                                 "experiment_name"] + "_registered/nerfacto/" + timestamp
 
         scene_seed = np.array(list(exp["scene_name"].encode('ascii'))).sum()
+        stats_list = []
 
         best_psnr = 0
         for i in range(1, 4):
@@ -75,18 +76,19 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
                 "experiment_name"] + "_registration_orig_cam/nerfacto/" + timestamp + "/stats.json"
             with open(os.path.join(exp_stats_path), 'r') as f:
                 exp_stats = json.load(f)
+            stats_list.append(exp_stats)
             if exp_stats["psnr"] > best_psnr:
                 best_psnr = exp_stats["psnr"]
                 best_exp_stats = exp_stats
 
-        total_stats[exp["experiment_name"]] = best_exp_stats
+        total_stats[exp["experiment_name"]] = {"best": best_exp_stats, "stats_list": stats_list}
 
     curr_timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
 
     base_dir = f"{outputs_dir}/../stats/"
     if not os.path.exists(base_dir):
         os.mkdir(base_dir)
-    total_stats_path = base_dir + curr_timestamp + "_orig_cam.json"
+    total_stats_path = base_dir + curr_timestamp + str(random.randint(0, 100)) + "_orig_cam.json"
     with open(total_stats_path, "w") as outfile:
         json.dump(total_stats, outfile, indent=2)
 
