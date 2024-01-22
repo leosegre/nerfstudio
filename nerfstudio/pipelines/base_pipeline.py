@@ -335,11 +335,12 @@ class VanillaPipeline(Pipeline):
                 rotation_rmse = torch.sqrt(rotation_mse)
                 translation_mse = torch.mean((camera_opt_translation - registration_translation).pow(2))
                 translation_rmse = torch.sqrt(translation_mse)
+                translation_rmse_100 = translation_rmse * 100
 
                 # metrics_dict["rotation_mse"] = (rotation_mse)
                 metrics_dict["rotation_rmse"] = (rotation_rmse)
                 # metrics_dict["translation_mse"] = (translation_mse)
-                metrics_dict["translation_rmse"] = (translation_rmse)
+                metrics_dict["translation_rmse_100"] = translation_rmse_100
 
                 metrics_dict["t_final"] = camera_opt_transform_matrix
 

@@ -16,10 +16,10 @@ def combine_json_files(directory_path):
                 data = json.load(file)
 
                 for key, value in data.items():
-                    # Check if "translation_rmse" key exists in the nested dictionary
-                    if "translation_rmse" in value:
-                        # Add "translation_rmse_square" key with the squared value
-                        value["translation_rmse_square"] = value["translation_rmse"] * 100
+                    # # Check if "translation_rmse" key exists in the nested dictionary
+                    # if "translation_rmse" in value:
+                    #     # Add "translation_rmse_square" key with the squared value
+                    #     value["translation_rmse_square"] = value["translation_rmse"] * 100
 
                     # Combine the data into the overall dictionary
                     combined_data[key] = value
