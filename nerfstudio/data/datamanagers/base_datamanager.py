@@ -365,6 +365,11 @@ class VanillaDataManagerConfig(DataManagerConfig):
     """
     patch_size: int = 1
     """Size of patch to sample from. If >1, patch-based sampling will be used."""
+    first_masked_iter: int = 0
+    """First iteration to use mask."""
+    sample_without_mask: bool = False
+    """Sample from all image, ignore the mask."""
+
 
 
 class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
@@ -472,7 +477,7 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
             collate_fn=self.config.collate_fn,
         )
         self.iter_train_image_dataloader = iter(self.train_image_dataloader)
-        self.train_pixel_sampler = self._get_pixel_sampler(self.train_dataset, self.config.train_num_rays_per_batch)
+        self.train_pixel_sampler = self._get_pixel_sampler(self.train_dataset, self.config.train_num_rays_per_batch, sample_without_mask=self.config.sample_without_mask)
         self.train_camera_optimizer = self.config.camera_optimizer.setup(
             num_cameras=self.train_dataset.cameras.size, device=self.device, registration=self.dataparser.config.optimize_camera_registration
         )
@@ -538,6 +543,11 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
         # image_batch["mask"] = image_batch["mask"]
         # print(image_batch["image"].shape)
         assert self.train_pixel_sampler is not None
+        if step <= self.config.first_masked_iter:
+            image_batch_no_mask = image_batch.copy()
+            image_batch_no_mask.pop("mask", None)
+            image_batch = image_batch_no_mask
+
         batch = self.train_pixel_sampler.sample(image_batch)
         # import ipdb;
         # ipdb.set_trace()

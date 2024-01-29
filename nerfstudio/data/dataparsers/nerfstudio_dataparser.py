@@ -87,6 +87,14 @@ class NerfstudioDataParserConfig(DataParserConfig):
     """Directory or explicit json file path specifying location of registration data."""
     inerf: bool = False
     """load a aframe and transform it."""
+    objaverse: bool = False
+    """dataset from objaverse."""
+    alpha_color: str = None
+    """alpha color of background"""
+    objaverse_transform_matrix: str = None
+    """matrix number of registration data."""
+
+
 
 
 
@@ -107,12 +115,13 @@ class Nerfstudio(DataParser):
             assert self.config.registration_data.exists(), f"Data directory {self.config.registration_data} does not exist."
             registration_data = load_from_json(self.config.registration_data / f"dataparser_transforms.json")
 
-        if self.config.blender:
-            meta = load_from_json(self.config.data / f"transforms_{split}.json")
-            data_dir = self.config.data
-        elif self.config.data.suffix == ".json":
+
+        if self.config.data.suffix == ".json":
             meta = load_from_json(self.config.data)
             data_dir = self.config.data.parent
+        elif self.config.blender:
+            meta = load_from_json(self.config.data / f"transforms_{split}.json")
+            data_dir = self.config.data
         else:
             meta = load_from_json(self.config.data / "transforms.json")
             data_dir = self.config.data
@@ -123,10 +132,13 @@ class Nerfstudio(DataParser):
         poses = []
         num_skipped_image_filenames = 0
 
-        if self.config.blender:
+        if self.config.blender or self.config.objaverse:
             image_0_filename = meta["frames"][0]["file_path"]
-            image_0_filename = self.config.data / Path(image_0_filename.replace("./", "") + ".png")
-            img_0 = imageio.imread(image_0_filename)
+            if self.config.blender:
+                image_0_filename = self.config.data / Path(image_0_filename.replace("./", "") + ".png")
+            else:
+                image_0_filename = data_dir / Path(image_0_filename.replace("./", "") + ".png")
+            img_0 = imageio.v2.imread(image_0_filename)
             meta["h"], meta["w"] = img_0.shape[:2]
             camera_angle_x = float(meta["camera_angle_x"])
             meta["fl_x"] = 0.5 * meta["w"] / np.tan(0.5 * camera_angle_x)
@@ -148,6 +160,16 @@ class Nerfstudio(DataParser):
             if distort_key in meta:
                 distort_fixed = True
                 break
+        # if self.config.objaverse:
+        #     camera_utils.get_distortion_params(
+        #         k1=float(meta["fl_x"]),
+        #         k2=float(0),
+        #         k3=float(meta["cx"]),
+        #         k4=float(0),
+        #         p1=float(meta["fl_y"]),
+        #         p2=float(meta["cy"]),
+        #     )
+
         fx = []
         fy = []
         cx = []
@@ -159,6 +181,9 @@ class Nerfstudio(DataParser):
         for frame in meta["frames"]:
             if self.config.blender:
                 fname = self.config.data / Path(frame["file_path"].replace("./", "") + ".png")
+            elif self.config.objaverse:
+                fname = data_dir / Path(frame["file_path"].replace("./", "") + ".png")
+                self.downscale_factor = self.config.downscale_factor
             else:
                 filepath = PurePath(frame["file_path"])
                 fname = self._get_fname(filepath, data_dir)
@@ -205,6 +230,8 @@ class Nerfstudio(DataParser):
                     data_dir,
                     downsample_folder_prefix="masks_",
                 )
+                if self.config.objaverse:
+                    mask_fname = data_dir / Path(frame["mask_path"].replace("./", "") + ".png")
                 mask_filenames.append(mask_fname)
 
             if "depth_file_path" in frame:
@@ -271,6 +298,12 @@ class Nerfstudio(DataParser):
             orientation_method = self.config.orientation_method
 
         poses = torch.from_numpy(np.array(poses).astype(np.float32))
+        if self.config.objaverse_transform_matrix is not None:
+            objaverse_transform_matrix_json = data_dir / f"world_frame_transforms.json"
+            assert objaverse_transform_matrix_json.exists(), f"objaverse_transform_matrix  {objaverse_transform_matrix_json} does not exist."
+            objaverse_transform_matrix_json = load_from_json(objaverse_transform_matrix_json)
+            objaverse_transform_matrix = torch.tensor(objaverse_transform_matrix_json[self.config.objaverse_transform_matrix])
+            poses = objaverse_transform_matrix @ poses
         if self.config.registration_data is not None:
             transform_matrix = torch.tensor(registration_data["transform"])
             poses = transform_matrix @ poses
@@ -302,8 +335,12 @@ class Nerfstudio(DataParser):
         if self.config.registration:
             if self.config.load_registration:
                 registration_matrix = torch.tensor(meta["registration_matrix"])
-                registration_rot_euler = torch.tensor(meta["registration_rot_euler"])
-                registration_translation = torch.tensor(meta["registration_translation"])
+                if meta["registration_rot_euler"] is not None:
+                    registration_rot_euler = torch.tensor(meta["registration_rot_euler"])
+                    registration_translation = torch.tensor(meta["registration_translation"])
+                else:
+                    registration_rot_euler = meta["registration_rot_euler"]
+                    registration_translation = meta["registration_translation"]
             else:
                 max_angle_factor = self.config.max_angle_factor
                 max_translation = self.config.max_translation
@@ -402,6 +439,10 @@ class Nerfstudio(DataParser):
         #     applied_scale = float(meta["applied_scale"])
         #     scale_factor *= applied_scale
 
+        if self.config.alpha_color == "white":
+            alpha_color = 1
+        else:
+            alpha_color = None
         dataparser_outputs = DataparserOutputs(
             image_filenames=image_filenames,
             cameras=cameras,
@@ -415,6 +456,7 @@ class Nerfstudio(DataParser):
                 "registration_matrix": registration_matrix if self.config.registration else None,
                 "registration_rot_euler": registration_rot_euler if self.config.registration else None,
                 "registration_translation": registration_translation if self.config.registration else None,
+                "objaverse_transform_matrix_json": objaverse_transform_matrix_json if self.config.objaverse else None,
                 "height": height,
                 "width": width,
                 "fx": fx,
@@ -422,6 +464,7 @@ class Nerfstudio(DataParser):
                 "cx": cx,
                 "cy": cy
             },
+            alpha_color=alpha_color,
         )
         return dataparser_outputs
 

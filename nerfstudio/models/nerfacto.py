@@ -161,6 +161,8 @@ class NerfactoModelConfig(ModelConfig):
     """Whether to register using mse loss, otherwise use viewshed."""
     weighted_loss: bool = False
     """Whether to register using weightef loss."""
+    nf_loss_on_mask_only: bool = False
+    """Apply nf_loss only where the image is masked."""
 
 
 class NerfactoModel(Model):
@@ -390,8 +392,19 @@ class NerfactoModel(Model):
             # intersection_points_plane = ray_plane_intersection_batch(ray_bundle.origins, ray_bundle.directions, 2,
             #                                                     -0.5)
 
+            # max_abs_value_of_points = torch.max(points.abs(), dim=1).values
+            # eps = 0.2
+            # assuming aabb is a symethric box
+            # point_on_boundary = max_abs_value_of_points >= (torch.max(self.scene_box.aabb) - eps)
+
             nf_field_outputs = self.nf_field.get_outputs(points, ray_bundle.directions)
             outputs["view_log_likelihood"] = nf_field_outputs[FieldHeadNames.VIEW_LOG_LIKELIHOOD]
+            # print(outputs["view_log_likelihood"])
+            # outputs["view_log_likelihood"][point_on_boundary] = -100
+            # print(outputs["view_log_likelihood"])
+
+
+
 
 
             # nf_field_outputs = self.nf_field.get_outputs(ray_samples)
@@ -533,9 +546,15 @@ class NerfactoModel(Model):
             if self.config.predict_view_likelihood:
                 # cpu_or_cuda_str: str = str(self.device).split(":")[0]
                 # with torch.autocast(device_type=cpu_or_cuda_str, enabled=False):
-                loss_dict["view_log_likelihood_loss"] = self.config.view_likelihood_loss_mult * -torch.mean(
-                    outputs["view_log_likelihood"]
-                )
+                if self.config.nf_loss_on_mask_only and "mask" in batch:
+                    mask = batch["mask"].to(self.device)
+                    loss_dict["view_log_likelihood_loss"] = self.config.view_likelihood_loss_mult * -torch.mean(
+                        outputs["view_log_likelihood"][mask]
+                    )
+                else:
+                    loss_dict["view_log_likelihood_loss"] = self.config.view_likelihood_loss_mult * -torch.mean(
+                        outputs["view_log_likelihood"]
+                    )
 
         return loss_dict
 
@@ -559,6 +578,7 @@ class NerfactoModel(Model):
             torch_image = torch.moveaxis(image, -1, 0)
             torch_image_mask = torch.moveaxis(image_mask, -1, 0)
             torch_rgb = torch.moveaxis(rgb, -1, 0)
+            image = torchvision.transforms.functional.resize(torch_image, torch_rgb.shape[1])
             image = torchvision.transforms.functional.resize(torch_image, torch_rgb.shape[1])
             image = torch.moveaxis(image, 0, -1)
             image_mask = torchvision.transforms.functional.resize(torch_image_mask, torch_rgb.shape[1])

@@ -218,7 +218,8 @@ class VanillaPipelineConfig(cfg.InstantiateConfig):
     """specifies the model config"""
     registration: bool = False
     """Registration mode is on."""
-
+    objaverse: bool = False
+    """objaverse mode is on."""
 
 class VanillaPipeline(Pipeline):
     """The pipeline class for the vanilla nerf setup of multiple cameras for one or a few scenes.
@@ -273,6 +274,44 @@ class VanillaPipeline(Pipeline):
         """Returns the device that the model is on."""
         return self.model.device
 
+    def rotation_distance(self, R1, R2, eps=1e-15):
+        """
+        Args:
+            R1: rotation matrix from camera 1 to world
+            R2: rotation matrix from camera 2 to world
+        Return:
+            angle: the angular distance between camera 1 and camera 2.
+        """
+        # http://www.boris-belousov.net/2016/12/01/quat-dist/
+        # R_diff = R1 @ R2.transpose(-2, -1)
+        R_diff = (R1.transpose(-2, -1) @ R2).to(dtype=torch.float64)
+
+        trace = R_diff[..., 0, 0] + R_diff[..., 1, 1] + R_diff[..., 2, 2]
+
+        # numerical stability near -1/+1
+        angle = ((trace - 1) / 2).clamp(-1 + eps, 1 - eps).acos_()
+        angle = torch.rad2deg(angle)
+
+        return angle
+
+    @torch.no_grad()
+    def evaluate_camera_alignment(self, pred_poses, poses_gt):
+        """
+        Args:
+            pred_poses: [B, 3/4, 4]
+            poses_gt: [B, 3/4, 4]
+        """
+        # measure errors in rotation and translation
+        R_pred, t_pred = pred_poses.split([3, 1], dim=-1)
+        R_gt, t_gt = poses_gt.split([3, 1], dim=-1)
+
+        R_error = self.rotation_distance(R_pred[..., :3, :3], R_gt[..., :3, :3])
+        t_error = (t_pred[..., :3, -1] - t_gt[..., :3, -1])[..., 0].norm(dim=-1)
+        mean_rotation_error = R_error.mean()
+        mean_position_error = t_error.mean()
+
+        return mean_rotation_error, mean_position_error
+
     @profiler.time_function
     def get_train_loss_dict(self, step: int, full_images=False):
         """This function gets your training loss dict. This will be responsible for
@@ -313,36 +352,48 @@ class VanillaPipeline(Pipeline):
                 # print("camera_opt_transform_matrix", camera_opt_transform_matrix)
                 # print("unregistration_matrix", unregistration_matrix)
             if self.config.registration:
-                registration_matrix = self.datamanager.train_dataparser_outputs.metadata["registration_matrix"]
-                # unregistration_matrix = self.datamanager.train_dataparser_outputs.metadata["unregistration_matrix"]
-                camera_opt_transform_matrix = pose_utils.multiply(self.datamanager.train_camera_optimizer([0]), self.datamanager.train_camera_optimizer.t0)
-                # print(unregistration_matrix.shape)
-                # print(camera_opt_transform_matrix.shape)
-                # print(unregistration_matrix.to(self.device) @ torch.cat((camera_opt_transform_matrix.squeeze(), torch.tensor([[0, 0, 0, 1]], device=self.device)), dim=0))
+                camera_opt_transform_matrix = pose_utils.multiply(self.datamanager.train_camera_optimizer([0]),
+                                                                  self.datamanager.train_camera_optimizer.t0)
+                metrics_dict["t_final"] = camera_opt_transform_matrix
+                registration_matrix = torch.tensor(self.datamanager.train_dataparser_outputs.metadata["registration_matrix"], device=self.device)
 
-                def npmat2euler(mat, seq='xyz'):
-                        eulers = []
-                        r = Rotation.from_matrix(mat.cpu().detach().numpy())
-                        eulers.append(r.as_euler(seq, degrees=True))
-                        return torch.tensor(np.array(eulers), dtype=torch.float32)
+                if self.config.objaverse:
+                    # unreg_pose = self.datamanager.train_dataparser_outputs.cameras.camera_to_worlds.to(device=self.device)
+                    # unreg_pose = pose_utils.to4x4(unreg_pose)
+                    # reg_pose_pred = pose_utils.multiply(camera_opt_transform_matrix, unreg_pose)
+                    # reg_pose = pose_utils.multiply(registration_matrix, unreg_pose)
+                    # rotation_mse, translation_mse = self.evaluate_camera_alignment(reg_pose_pred, reg_pose)
+                    rotation_rmse, translation_rmse = self.evaluate_camera_alignment(camera_opt_transform_matrix, registration_matrix)
+                    translation_rmse_100 = translation_rmse * 100
+                else:
+                    # unregistration_matrix = self.datamanager.train_dataparser_outputs.metadata["unregistration_matrix"]
+                    # print(unregistration_matrix.shape)
+                    # print(camera_opt_transform_matrix.shape)
+                    # print(unregistration_matrix.to(self.device) @ torch.cat((camera_opt_transform_matrix.squeeze(), torch.tensor([[0, 0, 0, 1]], device=self.device)), dim=0))
 
-                camera_opt_rot_euler = npmat2euler(camera_opt_transform_matrix[:, :3, :3])
-                registration_rot_euler = torch.tensor(self.datamanager.train_dataparser_outputs.metadata["registration_rot_euler"])
-                camera_opt_translation = camera_opt_transform_matrix[:, :, 3].cpu()
-                registration_translation = torch.tensor(self.datamanager.train_dataparser_outputs.metadata["registration_translation"])
+                    def npmat2euler(mat, seq='xyz'):
+                            eulers = []
+                            r = Rotation.from_matrix(mat.cpu().detach().numpy())
+                            eulers.append(r.as_euler(seq, degrees=True))
+                            return torch.tensor(np.array(eulers), dtype=torch.float32)
 
-                rotation_mse = torch.mean((camera_opt_rot_euler - registration_rot_euler).pow(2))
-                rotation_rmse = torch.sqrt(rotation_mse)
-                translation_mse = torch.mean((camera_opt_translation - registration_translation).pow(2))
-                translation_rmse = torch.sqrt(translation_mse)
-                translation_rmse_100 = translation_rmse * 100
+                    camera_opt_rot_euler = npmat2euler(camera_opt_transform_matrix[:, :3, :3])
+                    registration_rot_euler = torch.tensor(self.datamanager.train_dataparser_outputs.metadata["registration_rot_euler"])
+                    camera_opt_translation = camera_opt_transform_matrix[:, :, 3].cpu()
+                    registration_translation = torch.tensor(self.datamanager.train_dataparser_outputs.metadata["registration_translation"])
+
+                    rotation_mse = torch.mean((camera_opt_rot_euler - registration_rot_euler).pow(2))
+                    translation_mse = torch.mean((camera_opt_translation - registration_translation).pow(2))
+
+                    rotation_rmse = torch.sqrt(rotation_mse)
+                    translation_rmse = torch.sqrt(translation_mse)
+                    translation_rmse_100 = translation_rmse * 100
 
                 # metrics_dict["rotation_mse"] = (rotation_mse)
                 metrics_dict["rotation_rmse"] = (rotation_rmse)
                 # metrics_dict["translation_mse"] = (translation_mse)
                 metrics_dict["translation_rmse_100"] = translation_rmse_100
 
-                metrics_dict["t_final"] = camera_opt_transform_matrix
 
         loss_dict = self.model.get_loss_dict(model_outputs, batch, metrics_dict, full_images)
 

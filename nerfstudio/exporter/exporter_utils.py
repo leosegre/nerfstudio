@@ -431,7 +431,7 @@ def generate_cameras_from_nf(
         frame = {}
         frame["file_path"] = f"images/rgb_{int(i/num_depth_points)}.png"
         if generate_masks:
-            frame["mask_path"] = f"images/mask_{int(i/num_depth_points)}.png"
+            frame["mask_path"] = f"masks/mask_{int(i/num_depth_points)}.png"
         # transform_matrix = np.array(eval(camera["matrix"])).reshape((4, 4)).T
         frame["transform_matrix"] = camera
         frames.append(frame)
@@ -442,6 +442,14 @@ def generate_cameras_from_nf(
 
     transforms["transform"] = dataparser_transforms["transform"]
     transforms["registration_matrix"] = dataparser_transforms["registration_matrix"]
+    if "objaverse_transform_matrix_json" in dataparser_transforms:
+        if dataparser_transforms["objaverse_transform_matrix_json"] is not None:
+            transform_a = dict(dataparser_transforms["objaverse_transform_matrix_json"])["0"]
+            transform_a = torch.tensor(np.array(transform_a))
+            transform_b = dict(dataparser_transforms["objaverse_transform_matrix_json"])["1"]
+            transform_b = torch.tensor(np.array(transform_b))
+            # print(transform_a, transform_b)
+            transforms["registration_matrix"] = pose_utils.to4x4(pose_utils.multiply(transform_a, pose_utils.inverse(transform_b))).tolist()
     transforms["registration_rot_euler"] = dataparser_transforms["registration_rot_euler"]
     transforms["registration_translation"] = dataparser_transforms["registration_translation"]
     transforms["scale"] = dataparser_transforms["scale"]

@@ -68,7 +68,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
         stats_list = []
 
         best_psnr = 0
-        for i in range(1, 4):
+        for i in range(1, 11):
             os.system(registeration_cmd.format(str(scene_seed*i)))
 
             # Read the stats of the registration

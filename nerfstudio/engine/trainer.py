@@ -430,7 +430,7 @@ class Trainer:
             # Iterate through the keys and values in the input dictionary
             for key, tensor in stats_json.items():
                 # Convert the tensor to a scalar or list by extracting the value
-                scalar_value = tensor.item() if isinstance(tensor, torch.Tensor) else tensorf
+                scalar_value = tensor.item() if isinstance(tensor, torch.Tensor) else tensor
                 # Add the scalar to the new dictionary
                 stats_json[key] = scalar_value
             stats_json["t_final"] = best_t_final.tolist()

@@ -31,10 +31,11 @@ class PixelSampler:  # pylint: disable=too-few-public-methods
         keep_full_image: whether or not to include a reference to the full image in returned batch
     """
 
-    def __init__(self, num_rays_per_batch: int, keep_full_image: bool = False, **kwargs) -> None:
+    def __init__(self, num_rays_per_batch: int, keep_full_image: bool = False, sample_without_mask: bool = False, **kwargs) -> None:
         self.kwargs = kwargs
         self.num_rays_per_batch = num_rays_per_batch
         self.keep_full_image = keep_full_image
+        self.sample_without_mask = sample_without_mask
 
     def set_num_rays_per_batch(self, num_rays_per_batch: int):
         """Set the number of rays to sample per batch.
@@ -61,7 +62,7 @@ class PixelSampler:  # pylint: disable=too-few-public-methods
             num_images: number of images to sample over
             mask: mask of possible pixels in an image to sample from.
         """
-        if isinstance(mask, torch.Tensor):
+        if isinstance(mask, torch.Tensor) and not self.sample_without_mask:
             nonzero_indices = torch.nonzero(mask, as_tuple=False)
             chosen_indices = random.sample(range(len(nonzero_indices)), k=batch_size)
             indices = nonzero_indices[chosen_indices]
@@ -88,7 +89,7 @@ class PixelSampler:  # pylint: disable=too-few-public-methods
         device = batch["image"].device
         num_images, image_height, image_width, _ = batch["image"].shape
 
-        if "mask" in batch:
+        if "mask" in batch and not self.sample_without_mask:
             indices = self.sample_method(
                 num_rays_per_batch, num_images, image_height, image_width, mask=batch["mask"], device=device
             )
