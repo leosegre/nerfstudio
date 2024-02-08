@@ -100,7 +100,7 @@ class TrainerConfig(ExperimentConfig):
     """Optionally specify start step to load from."""
     t0: Optional[Path] = None
     """load JSON file of t0."""
-    downscale_init: int = 8
+    downscale_init: int = 4
     """Downscale the initial VF image H and W."""
 
 
