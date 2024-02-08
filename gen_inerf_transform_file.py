@@ -6,7 +6,7 @@ import json
 import random
 
 
-def process_directory(inerf_transforms_path, original_transform_path, unreg_transform_path, seed=42):
+def process_directory(inerf_transforms_path, original_transform_path, unreg_transform_path, inerf=True, seed=42):
     with open(os.path.join(original_transform_path), 'r') as f:
         original_transform = json.load(f)
     with open(os.path.join(unreg_transform_path), 'r') as f:
@@ -17,8 +17,9 @@ def process_directory(inerf_transforms_path, original_transform_path, unreg_tran
     #     frame["file_path"] = "../" + dir_name + "/" + frame["file_path"]
 
     # Sample single frame
-    random.seed(seed)
-    original_frames = [original_frames[random.randint(0, len(original_frames)-1)]]
+    if inerf:
+        random.seed(seed)
+        original_frames = [original_frames[random.randint(0, len(original_frames)-1)]]
 
     inerf_transform = original_transform.copy()
     inerf_transform["frames"] = original_frames
