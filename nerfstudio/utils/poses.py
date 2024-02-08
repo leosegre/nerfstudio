@@ -80,3 +80,16 @@ def normalize(poses: TensorType[..., 3, 4]) -> TensorType[..., 3, 4]:
     pose_copy[..., :3, 3] /= torch.max(torch.abs(poses[..., :3, 3]))
 
     return pose_copy
+
+def scale(pose: TensorType[..., 3, 4], scale_factor: TensorType[..., 1]) -> TensorType[..., 3, 4]:
+    """Scale  pose matrices.
+
+    Args:
+        pose: Left pose matrix, usually a transformation applied to the right.
+        scale: Scale coefficient.
+
+    Returns:
+        Camera pose matrix where pose_a was applied to pose_b.
+    """
+    pose[:, :3, 3] *= scale_factor
+    return pose

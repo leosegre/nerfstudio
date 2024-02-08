@@ -336,7 +336,6 @@ def generate_cameras_from_nf(
     Returns:
         List of transform matrices.
     """
-
     points_to_sample = num_points * sample_ratio
 
     # pylint: disable=too-many-statements
@@ -575,7 +574,7 @@ def collect_camera_poses(pipeline: VanillaPipeline) -> Tuple[List[Dict[str, Any]
     return train_frames, eval_frames
 
 
-def get_mask_from_view_likelihood(images, colormap_normalize=True):
+def get_mask_from_view_likelihood(images, colormap_normalize=True, threshold=0.05):
     # Normalize
     colormap_max = 1
     colormap_min = 0
@@ -608,7 +607,6 @@ def get_mask_from_view_likelihood(images, colormap_normalize=True):
         output_colormap[i] = cv.applyColorMap(output_colormap_flat[i], cv.COLORMAP_TURBO)
 
     # threshold = 0.1
-    threshold = 0.05
     mask_output = (255 * (output >= threshold)).cpu().numpy()
 
     return mask_output, output_colormap

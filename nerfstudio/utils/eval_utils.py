@@ -70,6 +70,8 @@ def eval_setup(
     config_path: Path,
     eval_num_rays_per_chunk: Optional[int] = None,
     test_mode: Literal["test", "val", "inference"] = "test",
+    near_plane: float = None,
+    far_plane: float = None,
 ) -> Tuple[TrainerConfig, Pipeline, Path, int]:
     """Shared setup for loading a saved pipeline for evaluation.
 
@@ -91,7 +93,10 @@ def eval_setup(
 
     if eval_num_rays_per_chunk:
         config.pipeline.model.eval_num_rays_per_chunk = eval_num_rays_per_chunk
-
+    if near_plane is not None:
+        config.pipeline.model.near_plane = near_plane
+    if far_plane is not None:
+        config.pipeline.model.far_plane = far_plane
     # load checkpoints from wherever they were saved
     # TODO: expose the ability to choose an arbitrary checkpoint
     config.load_dir = config.get_checkpoint_dir()

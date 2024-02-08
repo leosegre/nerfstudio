@@ -1,6 +1,7 @@
 import os
 import json
 import sys
+import csv
 
 def combine_json_files(directory_path):
     # Initialize an empty dictionary to store combined data
@@ -24,6 +25,19 @@ def combine_json_files(directory_path):
                     # Combine the data into the overall dictionary
                     combined_data[key] = value
     # Generate the output file path in the same directory with the name "combined_stats.json"
+
+    # Sort the combined data by scene name
+    combined_data = {k: v for k, v in sorted(combined_data.items())}
+
+    # Generate the output file path in the same directory with the name "combined_stats.csv"
+    output_file_path = os.path.join(directory_path, "combined_stats.csv")
+
+    # Write the combined data to a new CSV file
+    with open(output_file_path, 'w', newline='') as output_file:
+        writer = csv.writer(output_file)
+        writer.writerow(["Scene Name", "Translation RMSE x 100", "Rotation RMSE"])
+        for scene, stats in combined_data.items():
+            writer.writerow([scene, stats["best"]["translation_rmse_100"], stats["best"]["rotation_rmse"]])
     output_file_path = os.path.join(directory_path, "combined_stats.json")
 
     # Write the combined data to a new JSON file

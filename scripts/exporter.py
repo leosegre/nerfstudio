@@ -186,6 +186,10 @@ class ExportTransformsNF(Exporter):
     generate_masks: bool = True
     num_depth_points: int = 1
     seed: int = 42
+    near_plane: float = None
+    far_plane: float = None
+    threshold: float = 0.05
+    sample_ratio: int = 2
 
 
     def main(self) -> None:
@@ -199,7 +203,9 @@ class ExportTransformsNF(Exporter):
         if not self.output_dir.exists():
             self.output_dir.mkdir(parents=True)
 
-        _, pipeline, _, _ = eval_setup(self.load_config)
+        _, pipeline, _, _ = eval_setup(self.load_config, near_plane=self.near_plane, far_plane=self.far_plane)
+
+
 
         device = pipeline.device
 
@@ -216,6 +222,7 @@ class ExportTransformsNF(Exporter):
             max_depth=self.max_depth,
             generate_masks=self.generate_masks,
             num_depth_points=self.num_depth_points,
+            sample_ratio=self.sample_ratio,
         )
         torch.cuda.empty_cache()
 
@@ -289,7 +296,7 @@ class ExportTransformsNF(Exporter):
         view_likelihood_images = view_likelihood_images[depth_list]
 
 
-        mask_output, output_colormap = get_mask_from_view_likelihood(view_likelihood_images)
+        mask_output, output_colormap = get_mask_from_view_likelihood(view_likelihood_images, threshold=self.threshold)
 
         for i in reversed(range(self.num_points)):
 

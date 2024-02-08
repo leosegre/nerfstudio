@@ -707,7 +707,7 @@ class NerfactoModel(Model):
             #     np.concatenate((image_numpy2, rgb_numpy2), axis=1))
 
             if matchesMask == None:
-                loss = 10
+                loss = -10
             else:
 
                 # map src to dst
@@ -730,44 +730,46 @@ class NerfactoModel(Model):
 
                     rgb_for_loss = torch.from_numpy(np.moveaxis(rgb_numpy*mask, -1, 0)).to(dtype=float)
                     image_for_loss = torch.from_numpy(np.moveaxis(im_image_dst, -1, 0)).to(dtype=float)
-                    loss = self.rgb_loss(image_for_loss.unsqueeze(0), rgb_for_loss.unsqueeze(0)) / mask.sum()
+                    loss = -self.rgb_loss(image_for_loss.unsqueeze(0), rgb_for_loss.unsqueeze(0)) / mask.sum()
 
-                    cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/homography_step_{step}_loss_{loss:.7f}_det_{det:.4f}.png",
-                               np.concatenate((image_numpy, im_image_dst, rgb_numpy), axis=1))
+                    # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/homography_step_{step}_loss_{loss:.7f}_det_{det:.4f}.png",
+                    #            np.concatenate((image_numpy, im_image_dst, rgb_numpy), axis=1))
                 else:
-                    loss = 10
+                    loss = -10
+
+            viewshed_score = loss
 
 
                 # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/image_loss_{loss:.0f}.png", img3)
-
-
-        if self.mse_init:
-            viewshed_score = -self.rgb_loss(image.unsqueeze(0), rgb.unsqueeze(0))
         else:
-            viewshed = outputs["view_log_likelihood"]
-            # Find the minimum non-NaN value
-            min_value = torch.min(viewshed[~torch.isnan(viewshed)])
-            # Replace NaN values with the minimum non-NaN value
-            viewshed[torch.isnan(viewshed)] = min_value
-            # print("before exp:", output.min(), output.max())
-            viewshed = torch.exp(viewshed)
-            viewshed = torch.nan_to_num(viewshed)
+            if self.mse_init:
+                # viewshed_score = -self.rgb_loss(image.unsqueeze(0), rgb.unsqueeze(0))
+                viewshed_score = -self.rgb_loss(image[image_mask.squeeze()].unsqueeze(0), rgb[image_mask.squeeze()].unsqueeze(0))
+            else:
+                viewshed = outputs["view_log_likelihood"]
+                # Find the minimum non-NaN value
+                min_value = torch.min(viewshed[~torch.isnan(viewshed)])
+                # Replace NaN values with the minimum non-NaN value
+                viewshed[torch.isnan(viewshed)] = min_value
+                # print("before exp:", output.min(), output.max())
+                viewshed = torch.exp(viewshed)
+                viewshed = torch.nan_to_num(viewshed)
 
-            viewshed_score = viewshed.sum()
-            # viewshed_score = viewshed[image_mask].sum()
+                viewshed_score = viewshed.sum()
+                # viewshed_score = viewshed[image_mask].sum()
 
-            # rgb_numpy = rgb.cpu().numpy()
-            # rgb_numpy_check = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2RGB)
-            # rgb_numpy_check = cv.normalize(rgb_numpy_check, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
-            #
-            # img_numpy = image.cpu().numpy()
-            # img_numpy_check = cv.cvtColor(img_numpy, cv.COLOR_BGR2RGB)
-            # img_numpy_check = cv.normalize(img_numpy_check, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
-            #
-            # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/rgb_step_{step}_loss_{viewshed_score:.0f}.png", rgb_numpy_check)
-            # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/image_step_{step}_loss_{viewshed_score:.0f}.png", img_numpy_check)
-            # print(image_mask.shape)
-            # viewshed_score = -self.rgb_loss(image[image_mask.repeat(1, 1, 3)].unsqueeze(0), rgb[image_mask.repeat(1, 1, 3)].unsqueeze(0))
+                # rgb_numpy = rgb.cpu().numpy()
+                # rgb_numpy_check = cv.cvtColor(rgb_numpy, cv.COLOR_BGR2RGB)
+                # rgb_numpy_check = cv.normalize(rgb_numpy_check, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+                #
+                # img_numpy = image.cpu().numpy()
+                # img_numpy_check = cv.cvtColor(img_numpy, cv.COLOR_BGR2RGB)
+                # img_numpy_check = cv.normalize(img_numpy_check, None, 0, 255, cv.NORM_MINMAX).astype('uint8')
+                #
+                # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/rgb_step_{step}_loss_{viewshed_score:.0f}.png", rgb_numpy_check)
+                # cv.imwrite(f"/home/leo/nerfstudio_reg/nerfstudio/check/image_step_{step}_loss_{viewshed_score:.0f}.png", img_numpy_check)
+                # print(image_mask.shape)
+                # viewshed_score = -self.rgb_loss(image[image_mask.repeat(1, 1, 3)].unsqueeze(0), rgb[image_mask.repeat(1, 1, 3)].unsqueeze(0))
 
         # all of these metrics will be logged as scalars
         metrics_dict = {"psnr": float(psnr.item()), "ssim": float(ssim)}  # type: ignore

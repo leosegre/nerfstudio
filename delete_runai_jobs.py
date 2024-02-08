@@ -1,8 +1,10 @@
 import os
 import sys
 def main(reg_pipline):
-    scene_names = ["fern", "trex", "horns", "room"]
+    # scene_names = ["fern", "trex", "horns", "room"]
     # scene_names = ["trex", "room"]
+    scene_names = ["lion", "table"]
+
     exp_types = ["0-100-even-odd", "30-70-even-odd", "50-50"]
 
     for scene_name in scene_names:

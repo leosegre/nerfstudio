@@ -23,16 +23,18 @@ def main(data_dir, outputs_dir, scene_names=None, timestamp=None, repeat_reg=1):
         scene_names = os.listdir(data_dir)
         print(scene_names)
 
-    default_params = "ns-train objaverse-nerfacto --viewer.quit-on-train-completion True --max-num-iterations 10000 --nf-first-iter 7000 " \
+    default_params = "ns-train objaverse-nerfacto --viewer.quit-on-train-completion True --max-num-iterations 20000 --nf-first-iter 15000 " \
                       "--pipeline.datamanager.sample-without-mask True --pipeline.model.nf-loss-on-mask-only True " \
                       "--pipeline.datamanager.train-num-rays-per-batch 1024 " \
                      "--pipeline.model.predict-view-likelihood True --pipeline.datamanager.camera-optimizer.mode off --vis tensorboard "
-    default_params_registered = " nerfstudio-data --train-split-fraction 1.0 --scene-scale 2 --objaverse True --orientation-method none --center-method none --auto-scale-poses False --alpha-color white "
-    default_params_unregistered = " nerfstudio-data --train-split-fraction 1.0 --scene-scale 2 --objaverse True --orientation-method none --center-method none --auto-scale-poses False --alpha-color white "
+    default_params_registered = " nerfstudio-data --train-split-fraction 1.0 --scene-scale 1.5 --objaverse True --orientation-method none --center-method none --auto-scale-poses False --alpha-color white "
+    default_params_unregistered = " nerfstudio-data --train-split-fraction 1.0 --scene-scale 1.5 --objaverse True --orientation-method none --center-method none --auto-scale-poses False --alpha-color white "
     default_params_registration = "ns-train register-objaverse-nerfacto --viewer.quit-on-train-completion True --pipeline.model.predict-view-likelihood True --nf-first-iter 100000 " \
                                   "--start-step 0 --pipeline.datamanager.train-num-rays-per-batch 2048 --max-num-iterations 15000 --pipeline.objaverse True " \
-                                  "--pipeline.model.distortion-loss-mult 0 --pipeline.model.interlevel-loss-mult 0 --pipeline.registration True --vis tensorboard"
-    default_params_registration_suffix = " nerfstudio-data --train-split-fraction 1.0 --scene-scale 2 --registration True " \
+                                  "--pipeline.model.distortion-loss-mult 0 --pipeline.model.interlevel-loss-mult 0 --pipeline.registration True --vis tensorboard" \
+                                  " --pipeline.model.mse-init True "
+    # --pipeline.datamanager.first_masked_iter 1000
+    default_params_registration_suffix = " nerfstudio-data --train-split-fraction 1.0 --scene-scale 1.5 --registration True " \
                                          "--optimize_camera_registration True --load_registration True --orientation-method none --center-method none --auto-scale-poses False"
 
     # --pipeline.datamanager.camera-optimizer.mode SE3
@@ -57,7 +59,7 @@ def main(data_dir, outputs_dir, scene_names=None, timestamp=None, repeat_reg=1):
             "reg_downscale_factor": f"{int(1)}",
             "num_points_reg": "10",
             "num_points_unreg": "10",
-            "pretrain-iters": "25",
+            "pretrain-iters": "64",
             "unreg_data_dir": f"{data_dir}_unreg/",
             "outputs_dir": f"{outputs_dir}"
         }
@@ -81,7 +83,10 @@ def main(data_dir, outputs_dir, scene_names=None, timestamp=None, repeat_reg=1):
         export_cmd_unreg = "ns-export nf-cameras --seed {} --load-config " + outputs_dir + exp["experiment_name"] + "_unregistered/nerfacto/" \
                      + timestamp + "/config.yml" + " --output-dir " + exp["unreg_data_dir"] + exp["experiment_name"] + "_unregistered" \
                      + " --num_points " + exp["num_points_unreg"] + " --downscale_factor " + exp["reg_downscale_factor"] \
-                     + " --min_depth " + "3.5" + " --max_depth " + "4.5"
+                     + " --min_depth " + "4" + " --max_depth " + "4" \
+                     + " --near_plane " + "0" + " --far_plane " + "10" \
+                     + " --threshold 0.001"
+        # + " --generate_masks False " \
 
         registeration_cmd = default_params_registration + " --output-dir " + exp["outputs_dir"] + \
                             " --pretrain-iters " + exp["pretrain-iters"] + " --machine.seed {}" \

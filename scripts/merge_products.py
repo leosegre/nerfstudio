@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import os
 import sys
+from pathlib import Path
 
 def genDiag(nR, nC, valUpper, valDiag, valLower):
     slope = nC / nR
@@ -88,6 +89,27 @@ def merge_images_and_videos(input1, input2, output_path):
     else:
         raise ValueError("Invalid input types. Please provide either two images or two videos.")
 
+def merge_images_in_dir(image_dir1, image_dir2, output_dir):
+    # Get list of image files in both directories
+    images1 = os.listdir(image_dir1)
+    images2 = os.listdir(image_dir2)
+
+    # Ensure both directories contain the same number of images
+    if len(images1) != len(images2):
+        print("Error: Directories must contain the same number of images.")
+        return
+
+    # Iterate over images and merge them
+    for image_name1, image_name2 in zip(images1, images2):
+        output_path = os.path.join(output_dir, f"merged_{image_name1}")
+        image_path1 = os.path.join(image_dir1, image_name1)
+        image_path2 = os.path.join(image_dir2, image_name2)
+
+        # Merge images (assuming merge_images function is defined elsewhere)
+        merge_images_and_videos(image_path1, image_path2, output_path)
+
+        print(f"Merged {image_name1} and {image_name2} successfully.")
+
 if __name__ == "__main__":
     if len(sys.argv) != 4:
         print("Usage: python script.py input1_path input2_path output_path")
@@ -97,4 +119,8 @@ if __name__ == "__main__":
     input_path2 = sys.argv[2]
     output_path = sys.argv[3]
 
-    merge_images_and_videos(input_path1, input_path2, output_path)
+    if os.path.isdir(input_path1) and os.path.isdir(input_path2):
+        Path(output_path).mkdir(parents=True, exist_ok=True)
+        merge_images_in_dir(input_path1, input_path2, output_path)
+    else:
+        merge_images_and_videos(input_path1, input_path2, output_path)

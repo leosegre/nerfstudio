@@ -75,6 +75,8 @@ class NerfstudioDataParserConfig(DataParserConfig):
     """Whether to apply registration transform."""
     optimize_camera_registration: bool = False
     """Whether to apply registration transform."""
+    scale_opt: bool = False
+    """Whether to optimize scale factor."""
     load_registration: bool = False
     """Whether to load registration data from json."""
     max_angle_factor: float = 12
@@ -160,15 +162,15 @@ class Nerfstudio(DataParser):
             if distort_key in meta:
                 distort_fixed = True
                 break
-        # if self.config.objaverse:
-        #     camera_utils.get_distortion_params(
-        #         k1=float(meta["fl_x"]),
-        #         k2=float(0),
-        #         k3=float(meta["cx"]),
-        #         k4=float(0),
-        #         p1=float(meta["fl_y"]),
-        #         p2=float(meta["cy"]),
-        #     )
+        if self.config.objaverse:
+            camera_utils.get_distortion_params(
+                k1=float(meta["fl_x"]),
+                k2=float(0),
+                k3=float(meta["cx"]),
+                k4=float(0),
+                p1=float(meta["fl_y"]),
+                p2=float(meta["cy"]),
+            )
 
         fx = []
         fy = []

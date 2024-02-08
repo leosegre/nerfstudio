@@ -68,6 +68,13 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
                                 "experiment_name"] + "_registered/nerfacto/" + timestamp
 
         scene_seed = np.array(list(exp["scene_name"].encode('ascii'))).sum()
+
+        gen_inerf_tranform_cmd = "python gen_inerf_transform_file.py " + exp["inerf_data"] \
+                                 + f"{data_dir}/{exp['scene_name']}/transforms.json" \
+                                 + outputs_dir + exp["experiment_name"] + "_registered/nerfacto/" + timestamp + "/dataparser_transforms.json" \
+                                 + scene_seed
+        os.system(gen_inerf_tranform_cmd)
+
         stats_list = []
 
         best_psnr = 0

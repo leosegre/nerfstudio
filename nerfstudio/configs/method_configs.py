@@ -191,11 +191,11 @@ method_configs["objaverse-nerfacto"] = TrainerConfig(
     optimizers={
         "proposal_networks": {
             "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
-            "scheduler": ExponentialDecaySchedulerConfig(lr_final=0.0001, max_steps=200000),
+            "scheduler": ExponentialDecaySchedulerConfig(lr_final=0.0001, max_steps=20000),
         },
         "fields": {
             "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
-            "scheduler": ExponentialDecaySchedulerConfig(lr_final=0.0001, max_steps=200000),
+            "scheduler": ExponentialDecaySchedulerConfig(lr_final=0.0001, max_steps=20000),
         },
         "nf_field": {
             "optimizer": RAdamOptimizerConfig(lr=5e-5, eps=0.1),
@@ -229,8 +229,8 @@ method_configs["register-objaverse-nerfacto"] = TrainerConfig(
             ),
         ),
         model=NerfactoModelConfig(eval_num_rays_per_chunk=1 << 15,
-                                  near_plane=2.0,
-                                  far_plane=6.0,
+                                  near_plane=0.0,
+                                  far_plane=20.0,
                                   disable_scene_contraction=True,
                                   ),
     ),

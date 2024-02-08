@@ -274,7 +274,7 @@ class VanillaPipeline(Pipeline):
         """Returns the device that the model is on."""
         return self.model.device
 
-    def rotation_distance(self, R1, R2, eps=1e-15):
+    def rotation_distance(self, R1, R2, eps=1e-7):
         """
         Args:
             R1: rotation matrix from camera 1 to world
@@ -284,7 +284,8 @@ class VanillaPipeline(Pipeline):
         """
         # http://www.boris-belousov.net/2016/12/01/quat-dist/
         # R_diff = R1 @ R2.transpose(-2, -1)
-        R_diff = (R1.transpose(-2, -1) @ R2).to(dtype=torch.float64)
+        # R_diff = R1.transpose(-2, -1) @ R2
+        R_diff = pose_utils.multiply(R1.transpose(-2, -1).to(torch.float64), R2.to(torch.float64))
 
         trace = R_diff[..., 0, 0] + R_diff[..., 1, 1] + R_diff[..., 2, 2]
 
@@ -356,7 +357,6 @@ class VanillaPipeline(Pipeline):
                                                                   self.datamanager.train_camera_optimizer.t0)
                 metrics_dict["t_final"] = camera_opt_transform_matrix
                 registration_matrix = torch.tensor(self.datamanager.train_dataparser_outputs.metadata["registration_matrix"], device=self.device)
-
                 if self.config.objaverse:
                     # unreg_pose = self.datamanager.train_dataparser_outputs.cameras.camera_to_worlds.to(device=self.device)
                     # unreg_pose = pose_utils.to4x4(unreg_pose)

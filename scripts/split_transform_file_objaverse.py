@@ -71,6 +71,10 @@ def main(base_directory):
     labels = clustering(camtoworlds, num_clusters=2, method="KMeans")
 
     for i, frame in enumerate(transforms["frames"]):
+        transform_matrix = np.array(frame["transform_matrix"])
+        transform_matrix[:3, :3] = transform_matrix[:3, :3] * 1e2
+        frame["transform_matrix"] = transform_matrix.tolist()
+
         if labels[i] == 0:
             frames1.append(frame)
         else:

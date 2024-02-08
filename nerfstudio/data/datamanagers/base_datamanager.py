@@ -479,7 +479,8 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
         self.iter_train_image_dataloader = iter(self.train_image_dataloader)
         self.train_pixel_sampler = self._get_pixel_sampler(self.train_dataset, self.config.train_num_rays_per_batch, sample_without_mask=self.config.sample_without_mask)
         self.train_camera_optimizer = self.config.camera_optimizer.setup(
-            num_cameras=self.train_dataset.cameras.size, device=self.device, registration=self.dataparser.config.optimize_camera_registration
+            num_cameras=self.train_dataset.cameras.size, device=self.device, registration=self.dataparser.config.optimize_camera_registration,
+            scale_opt=self.dataparser.config.scale_opt
         )
         self.train_ray_generator = RayGenerator(
             self.train_dataset.cameras.to(self.device),

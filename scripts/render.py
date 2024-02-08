@@ -78,7 +78,7 @@ def _render_trajectory_video(
     if t_final is not None:
         with open(os.path.join(t_final), 'r') as f:
             t_final_json = json.load(f)
-        t_final_matrix = torch.tensor(list(t_final_json.values())[0]["t_final"], device=pipeline.device)
+        t_final_matrix = torch.tensor(list(t_final_json.values())[0]["best"]["t_final"], device=pipeline.device)
         # pipeline.datamanager.train_camera_optimizer.t0 = t_final_matrix
         camera_opt_to_camera = t_final_matrix
         print(camera_opt_to_camera)

@@ -100,7 +100,7 @@ class TrainerConfig(ExperimentConfig):
     """Optionally specify start step to load from."""
     t0: Optional[Path] = None
     """load JSON file of t0."""
-    downscale_init: int = 4
+    downscale_init: int = 8
     """Downscale the initial VF image H and W."""
 
 
@@ -250,7 +250,8 @@ class Trainer:
         for param_group in param_groups.values():
             for param in param_group:
                 param.requires_grad = False
-        param_groups["camera_opt"][0].requires_grad = True
+        for param in param_groups["camera_opt"]:
+            param.requires_grad = True
         camera_optimizer_config = self.config.pipeline.datamanager.camera_optimizer
         if camera_optimizer_config is not None and camera_optimizer_config.mode != "off":
             assert camera_optimizer_config.param_group not in optimizer_config
@@ -261,6 +262,24 @@ class Trainer:
         camera_param_groups = {'camera_opt': param_groups["camera_opt"]}
         return Optimizers(optimizer_config, camera_param_groups)
 
+    def equally_divided_cube(self, num_samples):
+        # Calculate the number of points along each axis
+        num_points_per_axis = int(torch.ceil(torch.pow(torch.tensor(num_samples, dtype=torch.float), 1 / 3)))
+
+        # Generate equally spaced coordinates along each axis
+        x = torch.linspace(0, 2, num_points_per_axis)
+        y = torch.linspace(0, 2, num_points_per_axis)
+        z = torch.linspace(0, 2, num_points_per_axis)
+
+        # Create a meshgrid from the coordinates
+        xx, yy, zz = torch.meshgrid(x, y, z)
+
+        # Reshape the meshgrid into a list of coordinates
+        xx = xx.flatten()[:num_samples]
+        yy = yy.flatten()[:num_samples]
+        zz = zz.flatten()[:num_samples]
+
+        return xx, yy, zz
 
     def train(self) -> None:
         """Train the model."""
@@ -309,6 +328,8 @@ class Trainer:
                                         1.0 / self.downscale_init)
                                     metrics_dict = self.pipeline.get_average_train_image_metrics(step)
                                     best_viewshed_score = metrics_dict["viewshed_score"]
+                                    _, _, metrics_dict_train = self.pipeline.get_train_loss_dict(step)
+                                    best_rotation = metrics_dict_train["rotation_rmse"]
                                     best_6dof = self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :]
                                     if self.pretrain_iters == 0:
                                         pretrain_flag = False
@@ -316,30 +337,53 @@ class Trainer:
                                         best_psnr = 0
                                 elif step < num_pretrain:
                                     print("Pretrain step:", step)
-                                    min_rand_rot = 0
-                                    max_rand_rot = 0.25*torch.pi
-                                    min_rand_trans = -0.5
-                                    max_rand_trans = 0.5
-                                    # random_6dof_rot = torch.deg2rad(torch.tensor((-33.70861053466797, 85.56428527832031, 65.87945556640625-15)).to(
-                                    #     device=self.device))
-                                    # random_6dof_trans = torch.tensor((0.0986584841970366, -0.3439813595575635, -0.34400547966379735)).to(
-                                    #     device=self.device)
-                                    random_6dof_rot = (min_rand_rot - max_rand_rot) * torch.rand(3).to(
-                                        device=self.device) + max_rand_rot
-                                    random_6dof_trans = (min_rand_trans - max_rand_trans) * torch.rand(3).to(
-                                        device=self.device) + max_rand_trans
-                                    random_6dof = torch.concat((random_6dof_trans, random_6dof_rot))
+                                    if self.pipeline.config.objaverse:
+                                        # min_rand_rot = 0
+                                        # max_rand_rot = 1 * torch.pi
+                                        # min_rand_trans = -0.2
+                                        # max_rand_trans = 0.2
+                                        # random_6dof_rot = torch.randn(3).to(
+                                        #     device=self.device) - torch.randn(3).to(
+                                        #     device=self.device)
+                                        # random_6dof_trans = torch.clamp(torch.randn(3), min=-0.2, max=0.2).to(
+                                        #     device=self.device) - torch.clamp(torch.randn(3), min=-0.2, max=0.2).to(
+                                        #     device=self.device)
+                                        x, y, z = self.equally_divided_cube(num_pretrain)
+                                        random_6dof_rot = torch.tensor([x[step]*torch.pi, y[step]*torch.pi, z[step]*torch.pi]).to(
+                                            device=self.device)
+                                        random_6dof_trans = torch.tensor([0, 0, 0]).to(
+                                            device=self.device)
+                                        random_6dof = torch.concat((random_6dof_trans, random_6dof_rot))
+                                    else:
+                                        min_rand_rot = 0
+                                        max_rand_rot = 0.25*torch.pi
+                                        min_rand_trans = -0.5
+                                        max_rand_trans = 0.5
+                                        # random_6dof_rot = torch.deg2rad(torch.tensor((-33.70861053466797, 85.56428527832031, 65.87945556640625-15)).to(
+                                        #     device=self.device))
+                                        # random_6dof_trans = torch.tensor((0.0986584841970366, -0.3439813595575635, -0.34400547966379735)).to(
+                                        #     device=self.device)
+                                        random_6dof_rot = (min_rand_rot - max_rand_rot) * torch.rand(3).to(
+                                            device=self.device) + max_rand_rot
+                                        random_6dof_trans = (min_rand_trans - max_rand_trans) * torch.rand(3).to(
+                                            device=self.device) + max_rand_trans
+                                        random_6dof = torch.concat((random_6dof_trans, random_6dof_rot))
 
                                     with torch.no_grad():
                                         self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = random_6dof
 
                                     metrics_dict = self.pipeline.get_average_train_image_metrics(step)
+                                    _, _, metrics_dict_train = self.pipeline.get_train_loss_dict(step)
                                     print("step:", step)
                                     print("best_VF:", best_viewshed_score)
                                     print("step_VF:", metrics_dict["viewshed_score"])
+                                    print("step_rotation:", metrics_dict_train["rotation_rmse"])
+                                    print("best_rotation:", best_rotation)
 
                                     if metrics_dict["viewshed_score"] > best_viewshed_score:
+                                    # if metrics_dict_train["rotation_rmse"] < best_rotation:
                                         best_viewshed_score = metrics_dict["viewshed_score"]
+                                        best_rotation = metrics_dict_train["rotation_rmse"]
                                         best_6dof = random_6dof
                                         print("step:", step, ", viewshed_score:", best_viewshed_score)
                                         print(best_6dof)

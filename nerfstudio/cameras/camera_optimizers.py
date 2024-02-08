@@ -80,6 +80,7 @@ class CameraOptimizer(nn.Module):
         num_cameras: int,
         device: Union[torch.device, str],
         registration: bool = False,
+        scale_opt: bool = False,
         **kwargs,  # pylint: disable=unused-argument
     ) -> None:
         super().__init__()
@@ -87,6 +88,7 @@ class CameraOptimizer(nn.Module):
         self.num_cameras = num_cameras
         self.device = device
         self.registration = registration
+        self.scale_opt = scale_opt
 
         # Initialize learnable parameters.
         if self.config.mode == "off":
@@ -96,6 +98,8 @@ class CameraOptimizer(nn.Module):
                 self.pose_adjustment = torch.nn.Parameter(torch.zeros((1, 6), device=device))
             else:
                 self.pose_adjustment = torch.nn.Parameter(torch.zeros((num_cameras, 6), device=device))
+            if self.scale_opt:
+                self.pose_adjustment_scale = torch.nn.Parameter(torch.ones((1, 1), device=device))
         else:
             assert_never(self.config.mode)
 
@@ -135,6 +139,13 @@ class CameraOptimizer(nn.Module):
             outputs.append(pose_utils.multiply(exp_map_SE3(self.pose_adjustment[indices, :]), self.t0))
         else:
             assert_never(self.config.mode)
+
+        if self.scale_opt:
+            unit = torch.eye(4, device=self.device)
+            unit *= self.pose_adjustment_scale[indices, :]
+            unit[3, 3] = 1
+            outputs.append(unit)
+            # print(self.pose_adjustment_scale)
 
         # Apply initial pose noise.
         if self.pose_noise is not None:
