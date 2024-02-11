@@ -2,7 +2,7 @@ import os
 import sys
 
 def main(reg_pipline):
-    # scene_names = ["fern", "horns", "room", "trex"]
+    scene_names = ["fern", "horns", "room", "trex"]
     # scene_names = ["trex"]
     timestamps = {"fern-0-100-even-odd": "2023-12-18_110607",
                   "fern-30-70-even-odd": "2023-12-18_110622",
@@ -19,11 +19,11 @@ def main(reg_pipline):
                   "lion-30-70-even-odd": "2024-02-05_084037",
                   "table-30-70-even-odd": "2024-02-05_084039"}
 
-    # exp_types = ["0-100-even-odd", "30-70-even-odd", "50-50"]
-    exp_types = ["30-70-even-odd"]
+    exp_types = ["0-100-even-odd", "30-70-even-odd", "50-50"]
+    # exp_types = ["30-70-even-odd"]
     # exp_types = ["0-100-even-odd"]
 
-    scene_names = ["lion", "table"]
+    # scene_names = ["lion", "table"]
     # exp_types = ["30-70-even-odd"]
     # timestamps = {"fern-0-100-even-odd": "2024-01-15_180431",
     #               "fern-30-70-even-odd": "2024-01-15_180422",

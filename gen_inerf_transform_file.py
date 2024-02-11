@@ -6,7 +6,7 @@ import json
 import random
 
 
-def process_directory(inerf_transforms_path, original_transform_path, unreg_transform_path, inerf=True, seed=42):
+def process_directory(inerf_transforms_path, original_transform_path, unreg_transform_path, seed=42, inerf=True):
     with open(os.path.join(original_transform_path), 'r') as f:
         original_transform = json.load(f)
     with open(os.path.join(unreg_transform_path), 'r') as f:
@@ -35,11 +35,16 @@ def process_directory(inerf_transforms_path, original_transform_path, unreg_tran
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 5:
-        print("Usage: python process_data.py <inerf_transforms_path> <original_transform_path> <unreg_transform_path> <seed>")
+    if len(sys.argv) != 5 and len(sys.argv) != 6:
+        print("Usage: python process_data.py <inerf_transforms_path> <original_transform_path> <unreg_transform_path> <seed> <<inerf>>")
     else:
         inerf_transforms_path = sys.argv[1]
         original_transform_path = sys.argv[2]
         unreg_transform_path = sys.argv[3]
         seed = sys.argv[4]
-        process_directory(inerf_transforms_path, original_transform_path, unreg_transform_path, int(seed))
+        if len(sys.argv) == 6:
+            inerf = sys.argv[5] != "False"
+
+        else:
+            inerf = True
+        process_directory(inerf_transforms_path, original_transform_path, unreg_transform_path, int(seed), inerf)

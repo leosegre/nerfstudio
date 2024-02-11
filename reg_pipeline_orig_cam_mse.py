@@ -56,7 +56,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
                             " --pretrain-iters " + exp["pretrain-iters"] + " --machine.seed {}" \
                             + " --data " + exp["orig_cam_data"] \
                             + " --experiment_name " + exp[
-                                "experiment_name"] + "_registration_orig_cam --timestamp " + timestamp \
+                                "experiment_name"] + "_registration_orig_cam_mse --timestamp " + timestamp \
                             + "_registration --timestamp " + timestamp \
                             + " --load_dir " + outputs_dir + exp["experiment_name"] + "_registered/nerfacto/" + timestamp + "/nerfstudio_models/" \
                             + default_params_registration_suffix + " --downscale_factor " + exp["downscale_factor"] \
@@ -67,9 +67,9 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
         scene_seed = np.array(list(exp["scene_name"].encode('ascii'))).sum()
 
         gen_inerf_tranform_cmd = "python gen_inerf_transform_file.py " + exp["orig_cam_data"] \
-                                 + f" {data_dir}/{exp['scene_name']}/transforms.json " \
-                                 + outputs_dir + exp["experiment_name"] + "_unregistered/nerfacto/" + timestamp + "/dataparser_transforms.json False " \
-                                 + str(scene_seed)
+                                 + f" {exp['data2']} " \
+                                 + outputs_dir + exp["experiment_name"] + "_unregistered/nerfacto/" + timestamp + "/dataparser_transforms.json " \
+                                 + str(scene_seed) + " False"
         print(gen_inerf_tranform_cmd)
         os.system(gen_inerf_tranform_cmd)
 
@@ -81,7 +81,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
 
             # Read the stats of the registration
             exp_stats_path = outputs_dir + exp[
-                "experiment_name"] + "_registration_orig_cam/nerfacto/" + timestamp + "/stats.json"
+                "experiment_name"] + "_registration_orig_cam_mse/nerfacto/" + timestamp + "/stats.json"
             with open(os.path.join(exp_stats_path), 'r') as f:
                 exp_stats = json.load(f)
             stats_list.append(exp_stats)
@@ -96,7 +96,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
     base_dir = f"{outputs_dir}/../stats/"
     if not os.path.exists(base_dir):
         os.mkdir(base_dir)
-    total_stats_path = base_dir + curr_timestamp + str(random.randint(0, 100)) + "_orig_cam.json"
+    total_stats_path = base_dir + curr_timestamp + str(random.randint(0, 100)) + "_orig_cam_mse.json"
     with open(total_stats_path, "w") as outfile:
         json.dump(total_stats, outfile, indent=2)
 
