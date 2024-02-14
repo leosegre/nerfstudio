@@ -30,8 +30,8 @@ def main(data_dir, outputs_dir, scene_names=None, timestamp=None, repeat_reg=1):
     default_params_registered = " nerfstudio-data --train-split-fraction 1.0 --scene-scale 1.5 --objaverse True --orientation-method none --center-method none --auto-scale-poses False --alpha-color white "
     default_params_unregistered = " nerfstudio-data --train-split-fraction 1.0 --scene-scale 1.5 --objaverse True --orientation-method none --center-method none --auto-scale-poses False --alpha-color white "
     default_params_registration = "ns-train register-objaverse-nerfacto --viewer.quit-on-train-completion True --pipeline.model.predict-view-likelihood True --nf-first-iter 100000 " \
-                                  "--start-step 0 --pipeline.datamanager.train-num-rays-per-batch 2048 --max-num-iterations 15000 --pipeline.objaverse True " \
-                                  "--pipeline.model.distortion-loss-mult 0 --pipeline.model.interlevel-loss-mult 0 --pipeline.registration True --vis tensorboard" \
+                                  "--start-step 0 --pipeline.datamanager.train-num-rays-per-batch 32000 --max-num-iterations 1000 --pipeline.objaverse True " \
+                                  "--pipeline.model.distortion-loss-mult 0 --pipeline.model.interlevel-loss-mult 0 --pipeline.registration True --vis viewer+tensorboard" \
                                   " --pipeline.model.mse-init True "
     # --pipeline.datamanager.first_masked_iter 1000
     default_params_registration_suffix = " nerfstudio-data --train-split-fraction 1.0 --scene-scale 1.5 --registration True " \
@@ -59,14 +59,14 @@ def main(data_dir, outputs_dir, scene_names=None, timestamp=None, repeat_reg=1):
             "reg_downscale_factor": f"{int(1)}",
             "num_points_reg": "10",
             "num_points_unreg": "10",
-            "pretrain-iters": "64",
+            "pretrain-iters": "0",
             "unreg_data_dir": f"{data_dir}_unreg/",
             "outputs_dir": f"{outputs_dir}"
         }
         exps.append(exp_params)
     total_stats = {}
     for exp in exps:
-        print(exp["unreg_data_dir"])
+        # print(exp["unreg_data_dir"])
         print("experiment_name:", exp["experiment_name"])
         registered_scene_cmd = default_params + "--output-dir " + exp["outputs_dir"] + " --machine.seed {}"\
                                " --data " + exp["data1"] + " --experiment_name " + exp["experiment_name"]  \
@@ -88,8 +88,27 @@ def main(data_dir, outputs_dir, scene_names=None, timestamp=None, repeat_reg=1):
                      + " --threshold 0.001"
         # + " --generate_masks False " \
 
+        export_unreg_pcd = "ns-export nf-pointcloud --load-config " + outputs_dir + exp["experiment_name"] + "_unregistered/nerfacto/" \
+                     + timestamp + "/config.yml" \
+                     + "  --output-dir " + outputs_dir + exp["experiment_name"] + "_unregistered/nerfacto/" + timestamp +"/"\
+                     + " --bounding-box-min -1.5 -1.5 -1.5 --bounding-box-max 1.5 1.5 1.5"
+
+        export_reg_pcd = "ns-export nf-pointcloud --load-config " + outputs_dir + exp["experiment_name"] + "_registered/nerfacto/" \
+                     + timestamp + "/config.yml" \
+                     + "  --output-dir " + outputs_dir + exp["experiment_name"] + "_registered/nerfacto/" + timestamp +"/"\
+                     + " --bounding-box-min -1.5 -1.5 -1.5 --bounding-box-max 1.5 1.5 1.5"
+
+        fgr_cmd = "python scripts/fgr.py " + outputs_dir + exp["experiment_name"] + "_unregistered/nerfacto/" \
+                     + timestamp + "/point_cloud.ply " \
+                     + outputs_dir + exp["experiment_name"] + "_registered/nerfacto/" \
+                     + timestamp + "/point_cloud.ply " \
+                     + outputs_dir + exp["experiment_name"] + "_unregistered/nerfacto/" \
+                     + timestamp + "/t0.json"
+
         registeration_cmd = default_params_registration + " --output-dir " + exp["outputs_dir"] + \
                             " --pretrain-iters " + exp["pretrain-iters"] + " --machine.seed {}" \
+                            + " --t0 " +outputs_dir + exp["experiment_name"] + "_unregistered/nerfacto/" \
+                            + timestamp + "/t0.json" \
                             + " --data " + exp["unreg_data_dir"] + exp["experiment_name"] + "_unregistered" \
                             + " --experiment_name " + exp["experiment_name"] + "_registration --timestamp " + timestamp \
                             + " --load_dir " + outputs_dir + exp["experiment_name"] + "_registered/nerfacto/" + timestamp + "/nerfstudio_models/" \
@@ -105,6 +124,9 @@ def main(data_dir, outputs_dir, scene_names=None, timestamp=None, repeat_reg=1):
         best_psnr = 0
         for i in range(1, repeat_reg+1):
             os.system(export_cmd_unreg.format(str(scene_seed*i)))
+            os.system(export_unreg_pcd)
+            os.system(export_reg_pcd)
+            os.system(fgr_cmd)
             os.system(registeration_cmd.format(str(scene_seed*i)))
 
             # Read the stats of the registration
@@ -136,6 +158,9 @@ if __name__ == "__main__":
         if len(sys.argv) >=4:
             scene_names = sys.argv[3].split(',')
         else:
+            scene_names = None
+
+        if scene_names[0] == "all":
             scene_names = None
 
         if not os.path.isdir(base_directory):

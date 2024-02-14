@@ -316,12 +316,15 @@ class Trainer:
                             if self.config.t0 is not None and pretrain_flag:
                                 with open(os.path.join(self.config.t0), 'r') as f:
                                     t0_json = json.load(f)
-                                t0 = torch.tensor(t0_json["t0"], device=self.device)
+                                # t0 = torch.tensor(t0_json["t0"], device=self.device)
                                 # with torch.no_grad():
                                 #     self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :] = t0
                                 t0_matrix = torch.tensor(t0_json["t0_matrix"], device=self.device)
+                                # t0_matrix = t0_matrix[torch.tensor([1, 0, 2, 3]), :]
+                                # t0_matrix[2, :] *= -1
                                 self.pipeline.datamanager.train_camera_optimizer.t0 = t0_matrix
                                 pretrain_flag = False
+                                best_psnr = 0
                             elif pretrain_flag:
                                 if step == self._start_step:
                                     self.pipeline.datamanager.fixed_indices_train_dataloader.cameras.rescale_output_resolution(

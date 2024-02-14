@@ -131,12 +131,15 @@ class CameraOptimizer(nn.Module):
         # if self.registration:
         #     indices = torch.zeros_like(torch.tensor(indices))
         # Apply learned transformation delta.
+
         if self.config.mode == "off":
             pass
         elif self.config.mode == "SO3xR3":
-            outputs.append(pose_utils.multiply(exp_map_SO3xR3(self.pose_adjustment[indices, :]), self.t0))
+            outputs.append(self.t0)
+            outputs.append(exp_map_SO3xR3(self.pose_adjustment[indices, :]))
         elif self.config.mode == "SE3":
-            outputs.append(pose_utils.multiply(exp_map_SE3(self.pose_adjustment[indices, :]), self.t0))
+            outputs.append(self.t0)
+            outputs.append(exp_map_SE3(self.pose_adjustment[indices, :]))
         else:
             assert_never(self.config.mode)
 

@@ -306,6 +306,8 @@ class Nerfstudio(DataParser):
             objaverse_transform_matrix_json = load_from_json(objaverse_transform_matrix_json)
             objaverse_transform_matrix = torch.tensor(objaverse_transform_matrix_json[self.config.objaverse_transform_matrix])
             poses = objaverse_transform_matrix @ poses
+        else:
+            objaverse_transform_matrix_json = None
         if self.config.registration_data is not None:
             transform_matrix = torch.tensor(registration_data["transform"])
             poses = transform_matrix @ poses

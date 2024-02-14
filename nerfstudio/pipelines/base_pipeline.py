@@ -353,8 +353,9 @@ class VanillaPipeline(Pipeline):
                 # print("camera_opt_transform_matrix", camera_opt_transform_matrix)
                 # print("unregistration_matrix", unregistration_matrix)
             if self.config.registration:
-                camera_opt_transform_matrix = pose_utils.multiply(self.datamanager.train_camera_optimizer([0]),
-                                                                  self.datamanager.train_camera_optimizer.t0)
+                # camera_opt_transform_matrix = pose_utils.multiply(self.datamanager.train_camera_optimizer([0]),
+                #                                                   self.datamanager.train_camera_optimizer.t0)
+                camera_opt_transform_matrix = self.datamanager.train_camera_optimizer([0])
                 metrics_dict["t_final"] = camera_opt_transform_matrix
                 registration_matrix = torch.tensor(self.datamanager.train_dataparser_outputs.metadata["registration_matrix"], device=self.device)
                 if self.config.objaverse:
@@ -362,7 +363,7 @@ class VanillaPipeline(Pipeline):
                     # unreg_pose = pose_utils.to4x4(unreg_pose)
                     # reg_pose_pred = pose_utils.multiply(camera_opt_transform_matrix, unreg_pose)
                     # reg_pose = pose_utils.multiply(registration_matrix, unreg_pose)
-                    # rotation_mse, translation_mse = self.evaluate_camera_alignment(reg_pose_pred, reg_pose)
+                    # rotation_rmse, translation_rmse = self.evaluate_camera_alignment(reg_pose_pred, reg_pose)
                     rotation_rmse, translation_rmse = self.evaluate_camera_alignment(camera_opt_transform_matrix, registration_matrix)
                     translation_rmse_100 = translation_rmse * 100
                 else:

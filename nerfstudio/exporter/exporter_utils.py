@@ -52,6 +52,7 @@ import torch.nn.functional as F
 import torchgeometry as tgm
 from nerfstudio.cameras import camera_utils
 from nerfstudio.utils import poses as pose_utils
+from nerfstudio.data.scene_box import SceneBox
 
 CONSOLE = Console(width=120)
 
@@ -257,8 +258,12 @@ def generate_point_cloud_nf(
 
 
         # Get density
-        positions = pipeline.model.field.spatial_distortion(points)
-        positions = (positions + 2.0) / 4.0
+        if pipeline.model.field.spatial_distortion is not None:
+            positions = pipeline.model.field.spatial_distortion(points)
+            positions = (positions + 2.0) / 4.0
+        else:
+            positions = SceneBox.get_normalized_positions(points, pipeline.model.field.aabb)
+
         positions_flat = positions.view(-1, 3)
         h = pipeline.model.field.mlp_base(positions_flat)
         density_before_activation, base_mlp_out = torch.split(h, [1, pipeline.model.field.geo_feat_dim], dim=-1)
@@ -281,12 +286,12 @@ def generate_point_cloud_nf(
 
         log_prob[torch.isnan(log_prob)] = 0
         sorted, indices = torch.sort(log_prob)
-        mask = indices[-10:]
+        # mask = indices[-10:]
         # mask = log_prob > 8
         # print(log_prob.min())
         # print(log_prob.max())
 
-    # mask = (density > 10.0)
+    mask = (density > 10.0)
     points = points[mask]
     rgbs = rgbs[mask]
 
