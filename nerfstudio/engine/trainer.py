@@ -325,6 +325,9 @@ class Trainer:
                                 self.pipeline.datamanager.train_camera_optimizer.t0 = t0_matrix
                                 pretrain_flag = False
                                 best_psnr = 0
+                                _, _, metrics_dict_train = self.pipeline.get_train_loss_dict(step)
+                                t0_rotation_rmse = metrics_dict_train["rotation_rmse"]
+                                t0_translation_rmse_100 = metrics_dict_train["translation_rmse_100"]
                             elif pretrain_flag:
                                 if step == self._start_step:
                                     self.pipeline.datamanager.fixed_indices_train_dataloader.cameras.rescale_output_resolution(
@@ -481,6 +484,9 @@ class Trainer:
                 # Add the scalar to the new dictionary
                 stats_json[key] = scalar_value
             stats_json["t_final"] = best_t_final.tolist()
+            if self.config.t0 is not None:
+                stats_json["t0_rotation_rmse"] = t0_rotation_rmse
+                stats_json["t0_translation_rmse_100"] = t0_translation_rmse_100
 
             with open(stats_json_path, "w") as outfile:
                 json.dump(stats_json, outfile, indent=2)

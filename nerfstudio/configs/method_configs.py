@@ -224,7 +224,7 @@ method_configs["register-objaverse-nerfacto"] = TrainerConfig(
                 mode="SE3",
                 optimizer=SGDOptimizerConfig(lr=10e-3, eps=1e-8),
                 # optimizer=AdamOptimizerConfig(lr=5e-3, eps=1e-8),
-                scheduler=ExponentialDecaySchedulerConfig(lr_final=1e-3, max_steps=1000),
+                scheduler=ExponentialDecaySchedulerConfig(lr_final=1e-3, max_steps=2500),
                 # scheduler=CosineDecaySchedulerConfig(max_steps=10000),
             ),
         ),

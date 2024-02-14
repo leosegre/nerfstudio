@@ -53,13 +53,14 @@ def execute_global_registration(source_down, target_down, source_fpfh,
 
 def execute_fast_global_registration(source_down, target_down, source_fpfh,
                                      target_fpfh, voxel_size):
-    distance_threshold = voxel_size * 0.5
+    distance_threshold = voxel_size * 3
     print(":: Apply fast global registration with distance threshold %.3f" \
           % distance_threshold)
     result = o3d.pipelines.registration.registration_fgr_based_on_feature_matching(
         source_down, target_down, source_fpfh, target_fpfh,
         o3d.pipelines.registration.FastGlobalRegistrationOption(
-            maximum_correspondence_distance=distance_threshold))
+            maximum_correspondence_distance=distance_threshold,
+            iteration_number=64))
     return result
 
 
@@ -77,8 +78,8 @@ def main(path_A, path_B, output_path, max_iterations, num_samples):
     A = o3d.io.read_point_cloud(path_A)
     B = o3d.io.read_point_cloud(path_B)
 
-    A_sampled = sample_points_uniformly(A, num_samples)
-    B_sampled = sample_points_uniformly(B, num_samples)
+    # A_sampled = sample_points_uniformly(A, num_samples)
+    # B_sampled = sample_points_uniformly(B, num_samples)
 
     # A_points = np.asarray(A_sampled.points)
     # B_points = np.asarray(B_sampled.points)
@@ -148,12 +149,12 @@ def main(path_A, path_B, output_path, max_iterations, num_samples):
         json.dump(result_dict, json_file, indent=4)
 
     transformed_A = copy.deepcopy(A).transform(registration_matrix)
-    transformed_B = copy.deepcopy(B).transform(registration_matrix)
+    # transformed_B = copy.deepcopy(B).transform(registration_matrix)
     output_path = Path(output_path)
     output_path_A = str(output_path.parent / "Transformed_A.ply")
-    output_path_B = str(output_path.parent / "Transformed_B.ply")
+    # output_path_B = str(output_path.parent / "Transformed_B.ply")
     o3d.io.write_point_cloud(output_path_A, transformed_A)
-    o3d.io.write_point_cloud(output_path_B, transformed_B)
+    # o3d.io.write_point_cloud(output_path_B, transformed_B)
     # o3d.visualization.draw_geometries([transformed_A, B])
 
 
