@@ -485,8 +485,8 @@ class Trainer:
                 stats_json[key] = scalar_value
             stats_json["t_final"] = best_t_final.tolist()
             if self.config.t0 is not None:
-                stats_json["t0_rotation_rmse"] = t0_rotation_rmse
-                stats_json["t0_translation_rmse_100"] = t0_translation_rmse_100
+                stats_json["t0_rotation_rmse"] = t0_rotation_rmse.tolist()
+                stats_json["t0_translation_rmse_100"] = t0_translation_rmse_100.tolist()
 
             with open(stats_json_path, "w") as outfile:
                 json.dump(stats_json, outfile, indent=2)
