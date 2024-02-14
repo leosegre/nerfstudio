@@ -6,6 +6,7 @@ import open3d as o3d
 from nerfstudio.utils import poses as pose_utils
 import torch
 import copy
+import random
 
 
 def preprocess_point_cloud(pcd, voxel_size):
@@ -53,7 +54,7 @@ def execute_global_registration(source_down, target_down, source_fpfh,
 
 def execute_fast_global_registration(source_down, target_down, source_fpfh,
                                      target_fpfh, voxel_size):
-    distance_threshold = voxel_size * 3
+    distance_threshold = voxel_size * 0.5
     print(":: Apply fast global registration with distance threshold %.3f" \
           % distance_threshold)
     result = o3d.pipelines.registration.registration_fgr_based_on_feature_matching(
@@ -77,7 +78,7 @@ def main(path_A, path_B, output_path, max_iterations, num_samples):
     # Read point cloud data from ply files
     A = o3d.io.read_point_cloud(path_A)
     B = o3d.io.read_point_cloud(path_B)
-
+    o3d.utility.random.seed(42)
     # A_sampled = sample_points_uniformly(A, num_samples)
     # B_sampled = sample_points_uniformly(B, num_samples)
 
@@ -89,13 +90,12 @@ def main(path_A, path_B, output_path, max_iterations, num_samples):
     voxel_size = 0.05  # means 5cm for this dataset
     source, target, source_down, target_down, source_fpfh, target_fpfh = prepare_dataset(copy.deepcopy(A),
                                                                                          copy.deepcopy(B), voxel_size)
-
-    result = execute_fast_global_registration(source_down, target_down,
-                                              source_fpfh, target_fpfh,
-                                              voxel_size)
-    # result_ransac = execute_global_registration(source_down, target_down,
-    #                                             source_fpfh, target_fpfh,
-    #                                             voxel_size)
+    # result = execute_fast_global_registration(source_down, target_down,
+    #                                           source_fpfh, target_fpfh,
+    #                                           voxel_size)
+    result = execute_global_registration(source_down, target_down,
+                                                source_fpfh, target_fpfh,
+                                                voxel_size)
 
     # threshold = 0.02
     # reg_p2p = o3d.pipelines.registration.registration_icp(

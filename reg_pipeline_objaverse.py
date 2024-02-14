@@ -30,7 +30,7 @@ def main(data_dir, outputs_dir, scene_names=None, timestamp=None, repeat_reg=1):
     default_params_registered = " nerfstudio-data --train-split-fraction 1.0 --scene-scale 1.5 --objaverse True --orientation-method none --center-method none --auto-scale-poses False --alpha-color white "
     default_params_unregistered = " nerfstudio-data --train-split-fraction 1.0 --scene-scale 1.5 --objaverse True --orientation-method none --center-method none --auto-scale-poses False --alpha-color white "
     default_params_registration = "ns-train register-objaverse-nerfacto --viewer.quit-on-train-completion True --pipeline.model.predict-view-likelihood True --nf-first-iter 100000 " \
-                                  "--start-step 0 --pipeline.datamanager.train-num-rays-per-batch 32000 --max-num-iterations 1000 --pipeline.objaverse True " \
+                                  "--start-step 0 --pipeline.datamanager.train-num-rays-per-batch 2048 --max-num-iterations 2500 --pipeline.objaverse True " \
                                   "--pipeline.model.distortion-loss-mult 0 --pipeline.model.interlevel-loss-mult 0 --pipeline.registration True --vis tensorboard" \
                                   " --pipeline.model.mse-init True "
     # --pipeline.datamanager.first_masked_iter 1000

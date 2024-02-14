@@ -135,9 +135,15 @@ class ExportPointCloudNF(Exporter):
     """Maximum of the bounding box, used if use_bounding_box is True."""
     std_ratio: float = 10.0
     """Threshold based on STD of the average distances across the point cloud to remove outliers."""
+    seed: int = 42
 
     def main(self) -> None:
         """Export point cloud."""
+
+        np.random.seed(self.seed)
+        torch.manual_seed(self.seed)
+        torch.cuda.manual_seed(self.seed)
+        torch.cuda.manual_seed_all(self.seed)
 
         if not self.output_dir.exists():
             self.output_dir.mkdir(parents=True)
