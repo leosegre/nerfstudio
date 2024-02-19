@@ -30,8 +30,8 @@ def main(data_dir, outputs_dir, scene_names=None, timestamp=None, repeat_reg=1):
     default_params_registered = " nerfstudio-data --train-split-fraction 1.0 --scene-scale 1.5 --objaverse True --orientation-method none --center-method none --auto-scale-poses False --alpha-color white "
     default_params_unregistered = " nerfstudio-data --train-split-fraction 1.0 --scene-scale 1.5 --objaverse True --orientation-method none --center-method none --auto-scale-poses False --alpha-color white "
     default_params_registration = "ns-train register-objaverse-nerfacto --viewer.quit-on-train-completion True --pipeline.model.predict-view-likelihood True --nf-first-iter 100000 " \
-                                  "--start-step 0 --pipeline.datamanager.train-num-rays-per-batch 2048 --max-num-iterations 2500 --pipeline.objaverse True " \
-                                  "--pipeline.model.distortion-loss-mult 0 --pipeline.model.interlevel-loss-mult 0 --pipeline.registration True --vis tensorboard" \
+                                  "--start-step 0 --pipeline.datamanager.train-num-rays-per-batch 8128 --max-num-iterations 2500 --pipeline.objaverse True " \
+                                  "--pipeline.model.distortion-loss-mult 0 --pipeline.model.interlevel-loss-mult 0 --pipeline.registration True --vis viewer+tensorboard" \
                                   " --pipeline.model.mse-init True "
     # --pipeline.datamanager.first_masked_iter 1000
     default_params_registration_suffix = " nerfstudio-data --train-split-fraction 1.0 --scene-scale 1.5 --registration True " \
@@ -91,12 +91,14 @@ def main(data_dir, outputs_dir, scene_names=None, timestamp=None, repeat_reg=1):
         export_unreg_pcd = "ns-export nf-pointcloud --load-config " + outputs_dir + exp["experiment_name"] + "_unregistered/nerfacto/" \
                      + timestamp + "/config.yml" \
                      + "  --output-dir " + outputs_dir + exp["experiment_name"] + "_unregistered/nerfacto/" + timestamp +"/"\
-                     + " --bounding-box-min -1.5 -1.5 -1.5 --bounding-box-max 1.5 1.5 1.5"
+                     + " --bounding-box-min -1.5 -1.5 -1.5 --bounding-box-max 1.5 1.5 1.5 " \
+                     + " --remove_outliers False"
 
         export_reg_pcd = "ns-export nf-pointcloud --load-config " + outputs_dir + exp["experiment_name"] + "_registered/nerfacto/" \
                      + timestamp + "/config.yml" \
                      + "  --output-dir " + outputs_dir + exp["experiment_name"] + "_registered/nerfacto/" + timestamp +"/"\
-                     + " --bounding-box-min -1.5 -1.5 -1.5 --bounding-box-max 1.5 1.5 1.5"
+                     + " --bounding-box-min -1.5 -1.5 -1.5 --bounding-box-max 1.5 1.5 1.5 " \
+                     + " --remove_outliers False"
 
         fgr_cmd = "python scripts/fgr.py " + outputs_dir + exp["experiment_name"] + "_unregistered/nerfacto/" \
                      + timestamp + "/point_cloud.ply " \
@@ -123,10 +125,10 @@ def main(data_dir, outputs_dir, scene_names=None, timestamp=None, repeat_reg=1):
 
         best_psnr = 0
         for i in range(1, repeat_reg+1):
-            os.system(export_cmd_unreg.format(str(scene_seed*i)))
-            os.system(export_unreg_pcd)
-            os.system(export_reg_pcd)
-            os.system(fgr_cmd)
+            # os.system(export_cmd_unreg.format(str(scene_seed*i)))
+            # os.system(export_unreg_pcd)
+            # os.system(export_reg_pcd)
+            # os.system(fgr_cmd)
             os.system(registeration_cmd.format(str(scene_seed*i)))
 
             # Read the stats of the registration
@@ -137,6 +139,8 @@ def main(data_dir, outputs_dir, scene_names=None, timestamp=None, repeat_reg=1):
             if exp_stats["psnr"] > best_psnr:
                 best_psnr = exp_stats["psnr"]
                 best_exp_stats = exp_stats
+                print("rotation_rmse", best_exp_stats["rotation_rmse"])
+                print("translation_rmse_100", best_exp_stats["translation_rmse_100"])
 
         total_stats[exp["experiment_name"]] = {"best": best_exp_stats, "stats_list": stats_list}
 

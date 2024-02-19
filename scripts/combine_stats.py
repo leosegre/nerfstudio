@@ -37,7 +37,10 @@ def combine_json_files(directory_path):
         writer = csv.writer(output_file)
         writer.writerow(["Scene Name", "Translation RMSE x 100", "Rotation RMSE", "t0 Translation RMSE x 100", "t0 Rotation RMSE"])
         for scene, stats in combined_data.items():
-            writer.writerow([scene, stats["best"]["translation_rmse_100"], stats["best"]["rotation_rmse"], stats["best"]["t0_translation_rmse_100"], stats["best"]["t0_rotation_rmse"]])
+            if "t0_translation_rmse_100" in stats["best"]:
+                writer.writerow([scene, stats["best"]["translation_rmse_100"], stats["best"]["rotation_rmse"], stats["best"]["t0_translation_rmse_100"], stats["best"]["t0_rotation_rmse"]])
+            else:
+                writer.writerow([scene, stats["best"]["translation_rmse_100"], stats["best"]["rotation_rmse"]])
     output_file_path = os.path.join(directory_path, "combined_stats.json")
 
     # Write the combined data to a new JSON file

@@ -220,12 +220,13 @@ def generate_point_cloud(
 
 def generate_point_cloud_nf(
     pipeline: Pipeline,
-    num_points: int = 1000000,
+    num_points: int = 100000,
     remove_outliers: bool = True,
     use_bounding_box: bool = True,
     bounding_box_min: Tuple[float, float, float] = (-1.0, -1.0, -1.0),
     bounding_box_max: Tuple[float, float, float] = (1.0, 1.0, 1.0),
     std_ratio: float = 10.0,
+    threshold: float = 10.0,
 ) -> o3d.geometry.PointCloud:
     """Generate a point cloud from a nerf.
 
@@ -291,7 +292,7 @@ def generate_point_cloud_nf(
         # print(log_prob.min())
         # print(log_prob.max())
 
-    mask = (density > 10.0)
+    mask = (density > threshold)
     points = points[mask]
     rgbs = rgbs[mask]
 

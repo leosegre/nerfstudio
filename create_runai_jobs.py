@@ -19,8 +19,8 @@ def main(reg_pipline):
                   "lion-30-70-even-odd": "2024-02-05_084037",
                   "table-30-70-even-odd": "2024-02-05_084039"}
 
-    # exp_types = ["0-100-even-odd", "30-70-even-odd", "50-50"]
-    exp_types = ["30-70-even-odd"]
+    exp_types = ["0-100-even-odd", "30-70-even-odd", "50-50"]
+    # exp_types = ["30-70-even-odd"]
     # exp_types = ["0-100-even-odd"]
 
     # scene_names = ["lion", "table"]
