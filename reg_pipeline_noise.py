@@ -9,7 +9,7 @@ import json
 import random
 
 
-def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=None, repeat_reg=10):
+def main(data_dir, outputs_dir, scene_names, exp_types, noise_levels, downscale, timestamp=None, repeat_reg=10):
     if timestamp is None:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
         reconstruct_scenes = True
@@ -33,7 +33,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
     # --pipeline.datamanager.camera-optimizer.mode SE3
     # exp_types = ["0_100_even_odd","30_70_even_odd","50_50"]
     # exp_types = ["50_50"]
-    noise_level = [0.01, 0.05, 0.1, 0.2]
+    # noise_level = [0.01, 0.05, 0.1, 0.2]
     print(scene_names)
     print(exp_types)
 
@@ -46,11 +46,11 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
 
     for scene in scene_names:
         for exp_type in exp_types:
-            for noise_level in noise_level:
+            for noise_level in noise_levels:
                 exp_params = {
                     "data1": f"{data_dir}/{scene}/transforms_{exp_type}_1.json",
                     "data2": f"{data_dir}/{scene}/transforms_{exp_type}_2.json",
-                    "experiment_name": f"{scene}_{exp_type}",
+                    "experiment_name": f"{scene}_{exp_type}_{noise_level}",
                     "scene_name": f"{scene}",
                     "noise_level": f"{noise_level}",
                     "downscale_factor": f"{downscale}",
@@ -117,7 +117,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
                 best_psnr = exp_stats["psnr"]
                 best_exp_stats = exp_stats
 
-        total_stats[exp["experiment_name"] + "_" + exp["noise_level"]] = {"best": best_exp_stats, "stats_list": stats_list}
+        total_stats[exp["experiment_name"]] = {"best": best_exp_stats, "stats_list": stats_list}
 
     curr_timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
 
@@ -129,25 +129,26 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
         json.dump(total_stats, outfile, indent=2)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 6 and len(sys.argv) != 7:
+    if len(sys.argv) != 7 and len(sys.argv) != 8:
         print("Usage: python reg_pipeline.py <data_directory> <output_directory> <scene_names> <exp_types> <downscale> <<timestamp>>")
     else:
         base_directory = sys.argv[1]
         output_directory = sys.argv[2]
         scene_names = sys.argv[3].split(',')
         exp_types = sys.argv[4].split(',')
-        downscale = sys.argv[5]
+        noise_levels = sys.argv[5].split(',')
+        downscale = sys.argv[6]
 
         if not os.path.isdir(base_directory):
             print(f"Error: {base_directory} is not a valid directory.")
         elif not os.path.isdir(output_directory):
             print(f"Error: {output_directory} is not a valid directory.")
         else:
-            if len(sys.argv) == 7:
-                timestamp = sys.argv[6]
-                main(base_directory, output_directory, scene_names, exp_types, downscale, timestamp)
+            if len(sys.argv) == 8:
+                timestamp = sys.argv[7]
+                main(base_directory, output_directory, scene_names, exp_types, noise_levels, downscale, timestamp)
             else:
-                main(base_directory, output_directory, scene_names, exp_types, downscale)
+                main(base_directory, output_directory, scene_names, exp_types, noise_levels, downscale)
 
 
 
