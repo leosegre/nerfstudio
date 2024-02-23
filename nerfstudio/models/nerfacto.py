@@ -165,6 +165,8 @@ class NerfactoModelConfig(ModelConfig):
     """Apply nf_loss only where the image is masked."""
     noise_oriented_points: bool = False
     """Apply noise to the oriented point (nf field)."""
+    noise_level_oriented_points: float = 0.0
+    """Noise level - percentage of scaled scene to the oriented point (nf field)."""
 
 
 class NerfactoModel(Model):
@@ -400,7 +402,8 @@ class NerfactoModel(Model):
             # point_on_boundary = max_abs_value_of_points >= (torch.max(self.scene_box.aabb) - eps)
 
             if self.config.noise_oriented_points:
-                points = points + (torch.rand_like(points) - 0.5) * 0.1
+                # Assuming scene scale is 2
+                points = points + 2 * (2*torch.rand_like(points) - 1) * self.config.noise_level_oriented_points
 
             nf_field_outputs = self.nf_field.get_outputs(points, ray_bundle.directions)
             outputs["view_log_likelihood"] = nf_field_outputs[FieldHeadNames.VIEW_LOG_LIKELIHOOD]

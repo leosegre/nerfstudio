@@ -33,6 +33,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
     # --pipeline.datamanager.camera-optimizer.mode SE3
     # exp_types = ["0_100_even_odd","30_70_even_odd","50_50"]
     # exp_types = ["50_50"]
+    noise_level = [0.01, 0.05, 0.1, 0.2]
     print(scene_names)
     print(exp_types)
 
@@ -45,20 +46,22 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
 
     for scene in scene_names:
         for exp_type in exp_types:
-            exp_params = {
-                "data1": f"{data_dir}/{scene}/transforms_{exp_type}_1.json",
-                "data2": f"{data_dir}/{scene}/transforms_{exp_type}_2.json",
-                "experiment_name": f"{scene}_{exp_type}",
-                "scene_name": f"{scene}",
-                "downscale_factor": f"{downscale}",
-                "reg_downscale_factor": f"{int(downscale)}",
-                "num_points_reg": "10",
-                "num_points_unreg": "10",
-                "pretrain-iters": "25",
-                "unreg_data_dir": f"{data_dir}/",
-                "outputs_dir": f"{outputs_dir}"
-            }
-            exps.append(exp_params)
+            for noise_level in noise_level:
+                exp_params = {
+                    "data1": f"{data_dir}/{scene}/transforms_{exp_type}_1.json",
+                    "data2": f"{data_dir}/{scene}/transforms_{exp_type}_2.json",
+                    "experiment_name": f"{scene}_{exp_type}",
+                    "scene_name": f"{scene}",
+                    "noise_level": f"{noise_level}",
+                    "downscale_factor": f"{downscale}",
+                    "reg_downscale_factor": f"{int(downscale)}",
+                    "num_points_reg": "10",
+                    "num_points_unreg": "10",
+                    "pretrain-iters": "25",
+                    "unreg_data_dir": f"{data_dir}/",
+                    "outputs_dir": f"{outputs_dir}"
+                }
+                exps.append(exp_params)
 
     total_stats = {}
     for exp in exps:
@@ -85,8 +88,9 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
         t0_cmd = "python scripts/generate_t0_list.py " + exp["unreg_data_dir"] + exp["experiment_name"] + "_registered/transforms.json " \
                  + exp["unreg_data_dir"] + exp["experiment_name"] + "_unregistered/transforms.json " + exp["reg_downscale_factor"]
 
-        registeration_cmd = default_params_registration + " --output-dir " + exp["outputs_dir"] + \
-                            " --pretrain-iters " + exp["pretrain-iters"] + " --machine.seed {}" \
+        registeration_cmd = default_params_registration + " --output-dir " + exp["outputs_dir"] \
+                            + "--pipeline.model.noise-oriented-points " + exp["noise_level"] \
+                            + " --pretrain-iters " + exp["pretrain-iters"] + " --machine.seed {}" \
                             + " --data " + exp["unreg_data_dir"] + exp["experiment_name"] + "_unregistered" \
                             + " --experiment_name " + exp["experiment_name"] + "_registration --timestamp " + timestamp \
                             + " --load_dir " + outputs_dir + exp["experiment_name"] + "_registered/nerfacto/" + timestamp + "/nerfstudio_models/" \
@@ -113,7 +117,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
                 best_psnr = exp_stats["psnr"]
                 best_exp_stats = exp_stats
 
-        total_stats[exp["experiment_name"]] = {"best": best_exp_stats, "stats_list": stats_list}
+        total_stats[exp["experiment_name"] + "_" + exp["noise_level"]] = {"best": best_exp_stats, "stats_list": stats_list}
 
     curr_timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
 
