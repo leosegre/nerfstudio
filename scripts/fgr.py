@@ -376,7 +376,7 @@ def main(path_A, path_B, output_path, max_iterations, num_samples):
     with open(output_path, 'w') as json_file:
         json.dump(result_dict, json_file, indent=4)
 
-    transformed_A = copy.deepcopy(source_down).transform(registration_matrix)
+    transformed_A = copy.deepcopy(source).transform(registration_matrix)
     # transformed_B = copy.deepcopy(B).transform(registration_matrix)
     output_path = Path(output_path)
     output_path_A = str(output_path.parent / "Transformed_A.ply")

@@ -136,6 +136,7 @@ class ExportPointCloudNF(Exporter):
     std_ratio: float = 10.0
     """Threshold based on STD of the average distances across the point cloud to remove outliers."""
     seed: int = 42
+    threshold: float = 10.0
 
     def main(self) -> None:
         """Export point cloud."""
@@ -161,6 +162,7 @@ class ExportPointCloudNF(Exporter):
             bounding_box_min=self.bounding_box_min,
             bounding_box_max=self.bounding_box_max,
             std_ratio=self.std_ratio,
+            threshold=self.threshold,
         )
         torch.cuda.empty_cache()
 

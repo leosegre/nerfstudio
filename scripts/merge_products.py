@@ -4,12 +4,12 @@ import os
 import sys
 from pathlib import Path
 
-def genDiag(nR, nC, valUpper, valDiag, valLower):
+def genDiag(nR, nC, valUpper, valDiag, valLower, line=0):
     slope = nC / nR
     tbl = np.full((nR, nC), valDiag, dtype=float)
     for r in range(nR):
-        tbl[r, 0 : int(round(slope * (r - 4), 0))] = valLower
-        tbl[r, int(round(slope * (r + 3), 0)) : nC] = valUpper
+        tbl[r, 0 : int(round(slope * (r - line), 0))] = valLower
+        tbl[r, int(round(slope * (r + line), 0)) : nC] = valUpper
     return tbl
 
 def merge_images_and_videos(input1, input2, output_path):

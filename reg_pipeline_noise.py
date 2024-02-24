@@ -50,7 +50,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, noise_levels, downscale,
                 exp_params = {
                     "data1": f"{data_dir}/{scene}/transforms_{exp_type}_1.json",
                     "data2": f"{data_dir}/{scene}/transforms_{exp_type}_2.json",
-                    "experiment_name": f"{scene}_{exp_type}_{noise_level}",
+                    "experiment_name": f"{scene}_{exp_type}_{noise_level.replace('.', '_')}",
                     "scene_name": f"{scene}",
                     "noise_level": f"{noise_level}",
                     "downscale_factor": f"{downscale}",
