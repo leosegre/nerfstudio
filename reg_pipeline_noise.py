@@ -66,13 +66,15 @@ def main(data_dir, outputs_dir, scene_names, exp_types, noise_levels, downscale,
     total_stats = {}
     for exp in exps:
         print("experiment_name:", exp["experiment_name"])
-        registered_scene_cmd = default_params + "--output-dir " + exp["outputs_dir"] + " --machine.seed {}"\
-                               " --data " + exp["data1"] + " --experiment_name " + exp["experiment_name"]  \
+        registered_scene_cmd = default_params + "--output-dir " + exp["outputs_dir"] + " --machine.seed {}" \
+                               + " --pipeline.model.noise-level-oriented-points " + exp["noise_level"] \
+                               + " --data " + exp["data1"] + " --experiment_name " + exp["experiment_name"]  \
                                + "_registered --timestamp " + timestamp + default_params_registered + \
                                "--downscale_factor " + exp["downscale_factor"]
 
         unregistered_scene_cmd = default_params + "--output-dir " + exp["outputs_dir"] + " --machine.seed {}" \
-                               " --data " + exp["data2"] + " --experiment_name " + exp["experiment_name"]  \
+                               + " --pipeline.model.noise-level-oriented-points " + exp["noise_level"] \
+                               + " --data " + exp["data2"] + " --experiment_name " + exp["experiment_name"]  \
                                + "_unregistered --timestamp " + timestamp + default_params_unregistered + \
                                "--downscale_factor " + exp["downscale_factor"] + \
                                " --registration_data " + outputs_dir + exp["experiment_name"] + "_registered/nerfacto/" + timestamp
@@ -89,7 +91,6 @@ def main(data_dir, outputs_dir, scene_names, exp_types, noise_levels, downscale,
                  + exp["unreg_data_dir"] + exp["experiment_name"] + "_unregistered/transforms.json " + exp["reg_downscale_factor"]
 
         registeration_cmd = default_params_registration + " --output-dir " + exp["outputs_dir"] \
-                            + "--pipeline.model.noise-oriented-points " + exp["noise_level"] \
                             + " --pretrain-iters " + exp["pretrain-iters"] + " --machine.seed {}" \
                             + " --data " + exp["unreg_data_dir"] + exp["experiment_name"] + "_unregistered" \
                             + " --experiment_name " + exp["experiment_name"] + "_registration --timestamp " + timestamp \

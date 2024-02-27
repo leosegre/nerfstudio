@@ -245,7 +245,7 @@ def generate_point_cloud_nf(
 
     # pylint: disable=too-many-statements
     with torch.no_grad():
-        d_cat_x, log_prob = pipeline.model.nf_field.nf_model.sample(num_points, sample_scale=16)
+        d_cat_x, log_prob = pipeline.model.nf_field.nf_model.sample(num_points, sample_scale=1)
         # d_cat_x = sample(pipeline.model.nf_field.nf_model, 1, num_points, truncate_std=1, gpu=0).squeeze()
         print(d_cat_x.shape)
         points = d_cat_x[..., :3]

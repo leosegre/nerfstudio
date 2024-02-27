@@ -43,7 +43,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
                 "downscale_factor": f"{downscale}",
                 "num_points_reg": "25",
                 "num_points_unreg": "10",
-                "pretrain-iters": "25",
+                "pretrain-iters": "0",
                 "unreg_data_dir": f"{data_dir}/",
                 "outputs_dir": f"{outputs_dir}"
             }
@@ -54,6 +54,8 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
         print("experiment_name:", exp["experiment_name"])
         registeration_cmd = default_params_registration + " --output-dir " + exp["outputs_dir"] + \
                             " --pretrain-iters " + exp["pretrain-iters"] + " --machine.seed {}" \
+                            + " --t0 " + outputs_dir + exp["experiment_name"] + "_unregistered/nerfacto/" \
+                            + timestamp + "/t0.json" \
                             + " --pipeline.datamanager.train-num-images-to-sample-from 1" \
                             + " --data " + exp["inerf_data"] \
                             + " --experiment_name " + exp[
@@ -77,7 +79,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
         stats_list = []
 
         best_psnr = 0
-        for i in range(1, 11):
+        for i in range(1, 2):
             os.system(registeration_cmd.format(str(scene_seed*i)))
 
             # Read the stats of the registration

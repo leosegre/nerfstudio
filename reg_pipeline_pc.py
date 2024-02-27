@@ -25,7 +25,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
     default_params_unregistered = " nerfstudio-data --train-split-fraction 1.0 --max-translation 0.5 --max-angle-factor 0.25 --scene-scale 2 " \
                                   "--registration True --orientation-method none --center-method none --auto-scale-poses False "
     default_params_registration = "ns-train register-nerfacto --viewer.quit-on-train-completion True --pipeline.model.predict-view-likelihood True --nf-first-iter 100000 " \
-                                  "--start-step 0 --pipeline.datamanager.train-num-rays-per-batch 32000 --max-num-iterations 1000 " \
+                                  "--start-step 0 --pipeline.datamanager.train-num-rays-per-batch 32000 --max-num-iterations 15000 " \
                                   "--pipeline.model.distortion-loss-mult 0 --pipeline.model.interlevel-loss-mult 0 --pipeline.registration True --vis tensorboard"
     default_params_registration_suffix = " nerfstudio-data --train-split-fraction 1.0 --max-translation 0.5 --max-angle-factor 0.25 --scene-scale 2 --registration True " \
                                          "--optimize_camera_registration True --load_registration True --orientation-method none --center-method none --auto-scale-poses False"
@@ -77,7 +77,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
         export_cmd_unreg = "ns-export nf-cameras --seed {} --load-config " + outputs_dir + exp["experiment_name"] + "_unregistered/nerfacto/" \
                      + timestamp + "/config.yml" + " --output-dir " + exp["unreg_data_dir"] + exp["experiment_name"] + "_unregistered" \
                      + " --num_points " + exp["num_points_unreg"] + " --downscale_factor " + exp["reg_downscale_factor"] \
-                     + " --sample_ratio 10 --num_depth_points 3"
+                     # + " --sample_ratio 10 --num_depth_points 3"
 
         export_unreg_pcd = "ns-export nf-pointcloud --load-config " + outputs_dir + exp["experiment_name"] + "_unregistered/nerfacto/" \
                      + timestamp + "/config.yml" \
@@ -117,9 +117,9 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
         best_psnr = 0
         for i in range(1, repeat_reg+1):
             os.system(export_cmd_unreg.format(str(scene_seed*i)))
-            os.system(export_unreg_pcd)
-            os.system(export_reg_pcd)
-            os.system(fgr_cmd)
+            # os.system(export_unreg_pcd)
+            # os.system(export_reg_pcd)
+            # os.system(fgr_cmd)
             os.system(registeration_cmd.format(str(scene_seed*i)))
 
             # Read the stats of the registration

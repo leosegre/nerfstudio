@@ -323,6 +323,7 @@ class Trainer:
                                 # t0_matrix = t0_matrix[torch.tensor([1, 0, 2, 3]), :]
                                 # t0_matrix[2, :] *= -1
                                 self.pipeline.datamanager.train_camera_optimizer.t0 = t0_matrix
+                                print(t0_matrix)
                                 pretrain_flag = False
                                 best_psnr = 0
                                 _, _, metrics_dict_train = self.pipeline.get_train_loss_dict(step)
