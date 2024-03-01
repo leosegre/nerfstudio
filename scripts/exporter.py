@@ -197,7 +197,7 @@ class ExportTransformsNF(Exporter):
     near_plane: float = None
     far_plane: float = None
     threshold: float = 0.05
-    sample_ratio: int = 2
+    sample_ratio: int = 10
 
 
     def main(self) -> None:

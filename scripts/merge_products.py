@@ -12,7 +12,22 @@ def genDiag(nR, nC, valUpper, valDiag, valLower, line=0):
         tbl[r, int(round(slope * (r + line), 0)) : nC] = valUpper
     return tbl
 
-def merge_images_and_videos(input1, input2, output_path):
+def genCheckerboard(nR, nC, valUpper, valLower, line=0):
+    # create a nR * nC mask
+    tile_size=50
+    mask = np.full((nR, nC), valUpper, dtype=int)
+    small_mask = np.full((int(nR/tile_size)+1, int(nC/tile_size)+1), valUpper, dtype=int)
+
+    # fill with 1 the alternate cells in rows and columns
+    small_mask[1::2, ::2] = valLower
+    small_mask[::2, 1::2] = valLower
+    temp_mask = np.kron(small_mask, np.ones((tile_size, tile_size)))
+    mask = temp_mask[tuple(slice(0, n) for n in mask.shape)]
+    # mask[temp_mask==1] = valUpper
+    # mask[temp_mask==0] = valLower
+    return mask
+
+def merge_images_and_videos(input1, input2, output_path, checkerboard):
     # Function to check if the input is an image or video
     def is_image(file_path):
         _, ext = os.path.splitext(file_path)
@@ -34,7 +49,10 @@ def merge_images_and_videos(input1, input2, output_path):
         w = int(img1.shape[0])
         h = int(img1.shape[1])
 
-        mask = genDiag(w, h, 1, 0, -1)[..., None]
+        if checkerboard:
+            mask = genCheckerboard(w, h, 1, -1)[..., None]
+        else:
+            mask = genDiag(w, h, 1, 0, -1)[..., None]
         mask1 = mask == 1
         mask2 = mask == -1
         mask_diag = mask == 0
@@ -42,8 +60,10 @@ def merge_images_and_videos(input1, input2, output_path):
         # Merge images along the diagonal
         merged_image = np.zeros_like(img1)
         merged_image += img1 * mask1
+        # merged_image += np.uint8([0, 0, 0]) * mask1
         merged_image += img2 * mask2
-        merged_image += np.uint8([255, 255, 255]) * mask_diag
+        # merged_image += np.uint8([255, 255, 255]) * mask2
+        # merged_image += np.uint8([255, 255, 255]) * mask_diag
 
         cv2.imwrite(output_path, merged_image)
 
@@ -57,7 +77,10 @@ def merge_images_and_videos(input1, input2, output_path):
         h = int(cap1.get(3))
         w = int(cap1.get(4))
 
-        mask = genDiag(w, h, 1, 0, -1)[..., None]
+        if checkerboard:
+            mask = genCheckerboard(w, h, 1, -1)[..., None]
+        else:
+            mask = genDiag(w, h, 1, 0, -1)[..., None]
         mask1 = mask == 1
         mask2 = mask == -1
         mask_diag = mask == 0
@@ -76,7 +99,9 @@ def merge_images_and_videos(input1, input2, output_path):
             # Merge frames along the diagonal
             merged_frame = np.zeros_like(frame1)
             merged_frame += frame1 * mask1
+            # merged_frame += 0 * mask1
             merged_frame += frame2 * mask2
+            # merged_frame += 255 * mask2
             merged_frame += np.uint8([255, 255, 255]) * mask_diag
 
 
@@ -89,7 +114,7 @@ def merge_images_and_videos(input1, input2, output_path):
     else:
         raise ValueError("Invalid input types. Please provide either two images or two videos.")
 
-def merge_images_in_dir(image_dir1, image_dir2, output_dir):
+def merge_images_in_dir(image_dir1, image_dir2, output_dir, checkerboard):
     # Get list of image files in both directories
     images1 = os.listdir(image_dir1)
     images2 = os.listdir(image_dir2)
@@ -106,21 +131,22 @@ def merge_images_in_dir(image_dir1, image_dir2, output_dir):
         image_path2 = os.path.join(image_dir2, image_name2)
 
         # Merge images (assuming merge_images function is defined elsewhere)
-        merge_images_and_videos(image_path1, image_path2, output_path)
+        merge_images_and_videos(image_path1, image_path2, output_path, checkerboard)
 
         print(f"Merged {image_name1} and {image_name2} successfully.")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("Usage: python script.py input1_path input2_path output_path")
+    if len(sys.argv) != 5:
+        print("Usage: python script.py input1_path input2_path output_path checkerboard")
         sys.exit(1)
 
     input_path1 = sys.argv[1]
     input_path2 = sys.argv[2]
     output_path = sys.argv[3]
+    checkerboard = sys.argv[4] == "True"
 
     if os.path.isdir(input_path1) and os.path.isdir(input_path2):
         Path(output_path).mkdir(parents=True, exist_ok=True)
-        merge_images_in_dir(input_path1, input_path2, output_path)
+        merge_images_in_dir(input_path1, input_path2, output_path, checkerboard)
     else:
-        merge_images_and_videos(input_path1, input_path2, output_path)
+        merge_images_and_videos(input_path1, input_path2, output_path, checkerboard)
