@@ -2,8 +2,9 @@ import os
 import sys
 
 def main(reg_pipline):
-    scene_names = ["fern", "horns", "room", "trex"]
+    # scene_names = ["fern", "horns", "room", "trex"]
     # scene_names = ["trex"]
+    scene_names = ["fern"]
     timestamps = {"fern-0-100-even-odd": "2023-12-18_110607",
                   "fern-30-70-even-odd": "2023-12-18_110622",
                   "fern-50-50": "2023-12-18_110747",
@@ -19,10 +20,12 @@ def main(reg_pipline):
                   "lion-30-70-even-odd": "2024-02-05_084037",
                   "table-30-70-even-odd": "2024-02-05_084039"}
 
-    exp_types = ["0-100-even-odd", "30-70-even-odd", "50-50"]
+    # exp_types = ["0-100-even-odd", "30-70-even-odd", "50-50"]
     # exp_types = ["30-70-even-odd"]
     # exp_types = ["0-100-even-odd"]
-    noise_levels = ["0.01", "0.05", "0.1", "0.2"]
+    exp_types = ["50-50"]
+
+    # noise_levels = ["0.01", "0.05", "0.1", "0.2"]
 
     # scene_names = ["lion", "table"]
     # exp_types = ["30-70-even-odd"]
@@ -44,16 +47,15 @@ def main(reg_pipline):
 
     for scene_name in scene_names:
         for exp_type in exp_types:
-            for noise_level in noise_levels:
-                cmd = f"runai submit --pvc=storage:/storage -i leosegre/nerfstudio_reg --name leo3-{scene_name}-{exp_type}-{noise_level.replace('.', '-')}{reg_pipline.replace('_', '-').replace('reg-pipeline', '')} " \
-                      f"-g 1 --large-shm --command -- bash entrypoint.sh python {reg_pipline}.py " \
-                f"/storage/leo/data /storage/leo/outputs/ {scene_name} {exp_type.replace('-', '_')} {downscale} {timestamps[f'{scene_name}-{exp_type}']}"
+            cmd = f"runai submit --pvc=storage:/storage -i leosegre/nerfstudio_reg --name leo3-{scene_name}-{exp_type}{reg_pipline.replace('_', '-').replace('reg-pipeline', '')} " \
+                  f"-g 1 --large-shm --command -- bash entrypoint.sh python {reg_pipline}.py " \
+            f"/storage/leo/data /storage/leo/outputs/ {scene_name} {exp_type.replace('-', '_')} {downscale} {timestamps[f'{scene_name}-{exp_type}']}"
 
-                # f"/storage/leo/data /storage/leo/outputs/ {scene_name} {exp_type.replace('-', '_')} {noise_level} {downscale}"
-                # print(cmd)
+            # f"/storage/leo/data /storage/leo/outputs/ {scene_name} {exp_type.replace('-', '_')} {noise_level} {downscale}"
+            # print(cmd)
 
 
-                os.system(cmd)
+            os.system(cmd)
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:

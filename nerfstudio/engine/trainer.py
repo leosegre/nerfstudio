@@ -52,6 +52,12 @@ from nerfstudio.viewer.server import viewer_utils
 from tqdm import tqdm
 from nerfstudio.viewer.server.viewer_state import ViewerState
 import json
+from nerfstudio.exporter.exporter_utils import (
+    render_trajectory,
+    get_mask_from_view_likelihood,
+)
+import numpy as np
+import cv2 as cv
 
 CONSOLE = Console(width=120)
 
@@ -102,6 +108,10 @@ class TrainerConfig(ExperimentConfig):
     """load JSON file of t0."""
     downscale_init: int = 4
     """Downscale the initial VF image H and W."""
+    render_images_on_train: bool = False
+    """Render images while training to visualize the progress."""
+    rendered_images_dir: Optional[Path] = None
+    """Render images while training to visualize the progress to this directory."""
 
 
 
@@ -410,6 +420,7 @@ class Trainer:
                                     step = self._start_step
                                     best_psnr = 0
                                     # self.pipeline.model.config.predict_view_likelihood = False
+
                             else:
                                 loss, loss_dict, metrics_dict = self.train_iteration(step)
                                 t_final = metrics_dict.pop("t_final")
@@ -418,6 +429,46 @@ class Trainer:
                                     best_psnr = metrics_dict["psnr"]
                                     best_t_final = t_final
                                 # print(best_psnr)
+                            if self.config.render_images_on_train:
+                                # if pretrain_flag or ((step-self.config.pretrain_iters)%100==0):
+                                if step < 300 or (step % 100 == 0):
+                                    self.pipeline.eval()
+                                    # print(self.pipeline.datamanager.train_camera_optimizer.pose_adjustment[[0], :])
+                                    # print(self.pipeline.datamanager.dataparser.get_dataparser_outputs().cameras)
+                                    color_images, depth_images, view_likelihood_images = render_trajectory(
+                                        self.pipeline,
+                                        self.pipeline.datamanager.dataparser.get_dataparser_outputs().cameras,
+                                        rgb_output_name="rgb",
+                                        depth_output_name="depth",
+                                        view_likelihood_output_name="view_log_likelihood",
+                                        rendered_resolution_scaling_factor=1.0,
+                                        disable_distortion=True,
+                                        camera_opt_to_camera=self.pipeline.datamanager.train_camera_optimizer([0]).to(device="cpu"),
+                                        camera_index=9
+                                    )
+                                    color_images = 255 * torch.tensor(np.array(color_images),
+                                                                      device=self.device).cpu().numpy()  # shape (N, 3, H, W)
+                                    depth_images = 255 * torch.tensor(np.array(depth_images),
+                                                                      device=self.device).cpu().numpy()  # shape (N, 1, H, W)
+                                    view_likelihood_images = torch.tensor(np.array(view_likelihood_images),
+                                                                          device=self.device)  # shape (N, 1, H, W)
+                                    _, output_colormap = get_mask_from_view_likelihood(view_likelihood_images)
+
+                                    images_dir = self.config.rendered_images_dir
+
+
+                                    for i in range(len(color_images)):
+                                        if step == 0:
+                                            for file in ["rgb", "vf", "depth"]:
+                                                path = Path(f"{images_dir}/{i}/{file}")
+                                                path.mkdir(parents=True, exist_ok=True)
+                                        cv.imwrite(f"{images_dir}/{i}/vf/{step}.png",
+                                                   output_colormap[i])
+
+                                        color_images[i] = cv.cvtColor(color_images[i], cv.COLOR_BGR2RGB)
+                                        cv.imwrite(f"{images_dir}/{i}/rgb/{step}.png", color_images[i])
+                                        cv.imwrite(f"{images_dir}/{i}/depth/{step}.png", depth_images[i])
+                                    self.pipeline.train()
                         else:
                             # time the forward pass
                             loss, loss_dict, metrics_dict = self.train_iteration(step)
@@ -676,6 +727,8 @@ class Trainer:
         param_groups = self.pipeline.get_param_groups()
         self.optimizers.zero_grad_all()
         cpu_or_cuda_str: str = self.device.split(":")[0]
+        # nf_total_params = sum(p.numel() for p in param_groups["nf_field"])
+        # print(f"Number of parameters: {nf_total_params}")
 
         # if self.pipeline.model.config.predict_view_likelihood:
         #     _, loss_dict, metrics_dict = self.pipeline.get_train_loss_dict(step=step)

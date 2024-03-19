@@ -1,18 +1,22 @@
 import os
 import sys
 def main(reg_pipline):
-    scene_names = ["fern", "trex", "horns", "room"]
+    # scene_names = ["fern", "trex", "horns", "room"]
     # scene_names = ["trex", "room"]
     # scene_names = ["lion", "table"]
+    scene_names = ["fern"]
 
     exp_types = ["0-100-even-odd", "30-70-even-odd", "50-50"]
+    # noise_levels = ["0.01", "0.05", "0.1", "0.2"]
 
     for scene_name in scene_names:
         for exp_type in exp_types:
-            cmd = f"runai delete job leo3-{scene_name}-{exp_type}{reg_pipline.replace('_', '-').replace('reg-pipeline', '')}"
-            # cmd = f"runai delete job leo2-{scene_name}-{exp_type}{reg_pipline.replace('_', '-').replace('reg-pipeline', '')}"
-            # cmd = f"runai delete job leo-{scene_name}-{exp_type}-{reg_pipline.replace('_', '-')}"
-            os.system(cmd)
+            # for noise_level in noise_levels:
+                cmd = f"runai delete job leo3-{scene_name}-{exp_type}{reg_pipline.replace('_', '-').replace('reg-pipeline', '')}"
+                # cmd = f"runai delete job leo3-{scene_name}-{exp_type}-{noise_level.replace('.', '-')}{reg_pipline.replace('_', '-').replace('reg-pipeline', '')}"
+                # cmd = f"runai delete job leo2-{scene_name}-{exp_type}{reg_pipline.replace('_', '-').replace('reg-pipeline', '')}"
+                # cmd = f"runai delete job leo-{scene_name}-{exp_type}-{reg_pipline.replace('_', '-')}"
+                os.system(cmd)
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:

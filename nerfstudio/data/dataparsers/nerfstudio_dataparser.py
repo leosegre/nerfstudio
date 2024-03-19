@@ -432,6 +432,7 @@ class Nerfstudio(DataParser):
 
         assert self.downscale_factor is not None
         cameras.rescale_output_resolution(scaling_factor=1.0 / self.downscale_factor)
+        # print(cameras)
 
         # if "applied_transform" in meta:
         #     if not self.config.load_registration:

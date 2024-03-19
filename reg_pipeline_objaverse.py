@@ -125,7 +125,7 @@ def main(data_dir, outputs_dir, scene_names=None, timestamp=None, repeat_reg=1):
 
         best_psnr = 0
         for i in range(1, repeat_reg+1):
-            # os.system(export_cmd_unreg.format(str(scene_seed*i)))
+            os.system(export_cmd_unreg.format(str(scene_seed*i)))
             # os.system(export_unreg_pcd)
             # os.system(export_reg_pcd)
             # os.system(fgr_cmd)

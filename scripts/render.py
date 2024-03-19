@@ -43,6 +43,8 @@ from nerfstudio.pipelines.base_pipeline import Pipeline
 from nerfstudio.utils import install_checks
 from nerfstudio.utils.eval_utils import eval_setup
 from nerfstudio.utils.rich_utils import ItersPerSecColumn
+from nerfstudio.exporter.exporter_utils import get_mask_from_view_likelihood
+import cv2 as cv
 
 CONSOLE = Console(width=120)
 
@@ -111,6 +113,39 @@ def _render_trajectory_video(
         writer = None
 
         with progress:
+            if "view_log_likelihood" in rendered_output_names:
+                max_vf = 0
+                min_vf = 0
+                for camera_idx in progress.track(range(cameras.size), description=""):
+                    aabb_box = None
+                    if crop_data is not None:
+                        bounding_box_min = crop_data.center - crop_data.scale / 2.0
+                        bounding_box_max = crop_data.center + crop_data.scale / 2.0
+                        aabb_box = SceneBox(torch.stack([bounding_box_min, bounding_box_max]).to(pipeline.device))
+                    camera_ray_bundle = cameras.generate_rays(camera_indices=camera_idx, aabb_box=aabb_box,
+                                                              camera_opt_to_camera=camera_opt_to_camera)
+
+                    if crop_data is not None:
+                        with renderers.background_color_override_context(
+                                crop_data.background_color.to(pipeline.device)
+                        ), torch.no_grad():
+                            outputs = pipeline.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
+                    else:
+                        with torch.no_grad():
+                            outputs = pipeline.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
+
+                    output = outputs["view_log_likelihood"]
+                    output = torch.exp(output)
+                    # Find the minimum-max non-NaN value
+                    min_vf_img = torch.min(output[~torch.isnan(output)])
+                    max_vf_img = torch.max(output[~torch.isnan(output)])
+                    # print(f"min_vf_img: {min_vf_img}")
+                    # print(f"max_vf_img: {max_vf_img}")
+                    if min_vf_img < min_vf:
+                        min_vf = min_vf_img
+                    if max_vf_img > max_vf:
+                        max_vf = max_vf_img
+
             for camera_idx in progress.track(range(cameras.size), description=""):
                 aabb_box = None
                 if crop_data is not None:
@@ -137,10 +172,31 @@ def _render_trajectory_video(
                             f"Please set --rendered_output_name to one of: {outputs.keys()}", justify="center"
                         )
                         sys.exit(1)
-                    output_image = outputs[rendered_output_name].cpu().numpy()
-                    if output_image.shape[-1] == 1:
-                        output_image = np.concatenate((output_image,) * 3, axis=-1)
+                    if rendered_output_name == "view_log_likelihood":
+                        output = outputs["view_log_likelihood"]
+                        # Find the minimum non-NaN value
+                        min_value = torch.min(output[~torch.isnan(output)])
+                        # Replace NaN values with the minimum non-NaN value
+                        output[torch.isnan(output)] = min_value
+                        # print("before exp:", output.min(), output.max())
+                        # print(torch.amax(output, (1, 2, 3)))
+                        output = torch.exp(output)
+                        output = output - min_vf
+                        output = output / (max_vf + 1e-6)
+                        output = torch.nan_to_num(output)
+                        output_colormap_flat = torch.clip(output, 0, 1)
+                        output_colormap_flat = torch.sqrt(output_colormap_flat)
+                        output_colormap_flat = output_colormap_flat.cpu().numpy()
+                        output_colormap_flat = (output_colormap_flat * 255).astype(np.uint8)
+                        output_image = cv.applyColorMap(output_colormap_flat, cv.COLORMAP_TURBO)
+                        output_image = output_image / 255
+                        output_image = output_image[..., ::-1]
+                    else:
+                        output_image = outputs[rendered_output_name].cpu().numpy()
+                        if output_image.shape[-1] == 1:
+                            output_image = np.concatenate((output_image,) * 3, axis=-1)
                     render_image.append(output_image)
+
                 render_image = np.concatenate(render_image, axis=1)
                 if output_format == "images":
                     media.write_image(output_image_dir / f"{camera_idx:05d}.png", render_image)

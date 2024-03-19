@@ -4,7 +4,7 @@ import os
 import sys
 from pathlib import Path
 
-def genDiag(nR, nC, valUpper, valDiag, valLower, line=0):
+def genDiag(nR, nC, valUpper, valDiag, valLower, line=3):
     slope = nC / nR
     tbl = np.full((nR, nC), valDiag, dtype=float)
     for r in range(nR):
@@ -63,7 +63,7 @@ def merge_images_and_videos(input1, input2, output_path, checkerboard):
         # merged_image += np.uint8([0, 0, 0]) * mask1
         merged_image += img2 * mask2
         # merged_image += np.uint8([255, 255, 255]) * mask2
-        # merged_image += np.uint8([255, 255, 255]) * mask_diag
+        merged_image += np.uint8([255, 255, 255]) * mask_diag
 
         cv2.imwrite(output_path, merged_image)
 
@@ -86,7 +86,9 @@ def merge_images_and_videos(input1, input2, output_path, checkerboard):
         mask_diag = mask == 0
 
 
-        fourcc = cv2.VideoWriter_fourcc(*'MJPG')  # Use MJPEG codec
+        # fourcc = cv2.VideoWriter_fourcc(*'MJPG')  # Use MJPEG codec
+        # fourcc = 0x00000021
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(output_path, fourcc, 20.0, (int(cap1.get(3)), int(cap1.get(4))))
 
         while True:
@@ -104,7 +106,6 @@ def merge_images_and_videos(input1, input2, output_path, checkerboard):
             # merged_frame += 255 * mask2
             merged_frame += np.uint8([255, 255, 255]) * mask_diag
 
-
             out.write(merged_frame)
 
         cap1.release()
@@ -118,6 +119,13 @@ def merge_images_in_dir(image_dir1, image_dir2, output_dir, checkerboard):
     # Get list of image files in both directories
     images1 = os.listdir(image_dir1)
     images2 = os.listdir(image_dir2)
+
+    if len(images1) == 1:
+        images1 = images1 * len(images2)
+    if len(images2) == 1:
+        images2 = images2 * len(images1)
+    # print(images1)
+    # print(images2)
 
     # Ensure both directories contain the same number of images
     if len(images1) != len(images2):

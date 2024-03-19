@@ -468,9 +468,11 @@ def render_trajectory(
     cameras: Cameras,
     rgb_output_name: str,
     depth_output_name: str,
-    view_likelihood_output_name: str,
+    view_likelihood_output_name: str = None,
     rendered_resolution_scaling_factor: float = 1.0,
     disable_distortion: bool = False,
+    camera_opt_to_camera: Optional[TensorType["num_rays":..., 3, 4]] = None,
+    camera_index = None,
 ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
     """Helper function to create a video of a trajectory.
 
@@ -489,6 +491,7 @@ def render_trajectory(
     depths = []
     view_likelihood = []
     cameras.rescale_output_resolution(rendered_resolution_scaling_factor)
+    # camera_opt_to_camera = pipeline.datamanager.train_camera_optimizer([0]).to(device="cpu")
 
     progress = Progress(
         TextColumn(":cloud: Computing rgb and depth images :cloud:"),
@@ -497,10 +500,14 @@ def render_trajectory(
         ItersPerSecColumn(suffix="fps"),
         TimeRemainingColumn(elapsed_when_finished=True, compact=True),
     )
+    if camera_index is not None:
+        camera_indices = [camera_index]
+    else:
+        camera_indices = range(cameras.size)
     with progress:
-        for camera_idx in progress.track(range(cameras.size), description=""):
+        for camera_idx in progress.track(camera_indices, description=""):
             camera_ray_bundle = cameras.generate_rays(
-                camera_indices=camera_idx, disable_distortion=disable_distortion
+                camera_indices=camera_idx, disable_distortion=disable_distortion, camera_opt_to_camera=camera_opt_to_camera
             ).to(pipeline.device)
             with torch.no_grad():
                 outputs = pipeline.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
@@ -514,16 +521,21 @@ def render_trajectory(
                 CONSOLE.print(f"Could not find {depth_output_name} in the model outputs", justify="center")
                 CONSOLE.print(f"Please set --depth_output_name to one of: {outputs.keys()}", justify="center")
                 sys.exit(1)
-            if view_likelihood_output_name not in outputs:
-                CONSOLE.rule("Error", style="red")
-                CONSOLE.print(f"Could not find {view_likelihood_output_name} in the model outputs", justify="center")
-                CONSOLE.print(f"Please set --view_likelihood_output_name to one of: {outputs.keys()}", justify="center")
-                sys.exit(1)
+            if view_likelihood_output_name is not None:
+                if view_likelihood_output_name not in outputs:
+                    CONSOLE.rule("Error", style="red")
+                    CONSOLE.print(f"Could not find {view_likelihood_output_name} in the model outputs", justify="center")
+                    CONSOLE.print(f"Please set --view_likelihood_output_name to one of: {outputs.keys()}", justify="center")
+                    sys.exit(1)
 
             images.append(outputs[rgb_output_name].cpu().numpy())
             depths.append(outputs[depth_output_name].cpu().numpy())
-            view_likelihood.append(outputs[view_likelihood_output_name].cpu().numpy())
-    return images, depths, view_likelihood
+            if view_likelihood_output_name is not None:
+                view_likelihood.append(outputs[view_likelihood_output_name].cpu().numpy())
+        if view_likelihood_output_name is not None:
+            return images, depths, view_likelihood
+        else:
+            return images, depths
 
 
 def collect_camera_poses_for_dataset(dataset: Optional[InputDataset]) -> List[Dict[str, Any]]:
@@ -585,7 +597,7 @@ def get_mask_from_view_likelihood(images, colormap_normalize=True, threshold=0.0
     colormap_max = 1
     colormap_min = 0
     # print(colormap_normalize)
-    eps = 1e-6
+    eps = 1e-20
     output = images
     # output = torch.nan_to_num(output)
     # Find the minimum non-NaN value
@@ -598,10 +610,12 @@ def get_mask_from_view_likelihood(images, colormap_normalize=True, threshold=0.0
     # print(torch.amax(output, (1, 2, 3)))
 
     # output = torch.clip(output, 0, 100)
+    # print(torch.max(output))
     # print("after exp:", output.min(), output.max())
     if colormap_normalize:
         output = output - torch.min(output)
         output = output / (torch.max(output) + eps)
+        # output = output / 2400
     output = output * (colormap_max - colormap_min) + colormap_min
     output = torch.nan_to_num(output)
     output_colormap_flat = torch.clip(output, 0, 1)

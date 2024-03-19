@@ -257,6 +257,7 @@ class ExportTransformsNF(Exporter):
             rendered_resolution_scaling_factor=1.0 / self.downscale_factor,
             disable_distortion=True,
         )
+
         color_images = 255 * torch.tensor(np.array(color_images), device=device).cpu().numpy()  # shape (N, 3, H, W)
         depth_images = 255 * torch.tensor(np.array(depth_images), device=device).cpu().numpy()  # shape (N, 1, H, W)
         view_likelihood_images = torch.tensor(np.array(view_likelihood_images), device=device)  # shape (N, 1, H, W)
@@ -278,6 +279,7 @@ class ExportTransformsNF(Exporter):
         best_viewshed = 0
         depth_list = []
         best_depth = 0
+
 
         for i in range(view_likelihood_images.shape[0]):
             output_viewshed = view_likelihood_images[i]

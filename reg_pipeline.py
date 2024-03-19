@@ -9,7 +9,7 @@ import json
 import random
 
 
-def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=None, repeat_reg=10):
+def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=None, repeat_reg=1):
     if timestamp is None:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
         reconstruct_scenes = True
@@ -91,6 +91,7 @@ def main(data_dir, outputs_dir, scene_names, exp_types, downscale, timestamp=Non
                             + " --experiment_name " + exp["experiment_name"] + "_registration --timestamp " + timestamp \
                             + " --load_dir " + outputs_dir + exp["experiment_name"] + "_registered/nerfacto/" + timestamp + "/nerfstudio_models/" \
                             + default_params_registration_suffix + " --downscale_factor " + exp["reg_downscale_factor"]
+        # + " --render_images_on_train True --rendered-images-dir /home/leo/nerfstudio_reg/nerfstudio/check/" \
 
         scene_seed = np.array(list(exp["scene_name"].encode('ascii'))).sum()
         stats_list = []
